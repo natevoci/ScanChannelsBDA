@@ -213,88 +213,96 @@ void Mpeg2DataParser::StartMpeg2DataScanThread()
 {
 	HRESULT hr = S_OK;
 
-	current_tp = (struct transponder *)calloc(1, sizeof(*current_tp));
-	INIT_LIST_HEAD(&current_tp->list);
-	INIT_LIST_HEAD(&current_tp->services);
-
-	if (m_piIMpeg2Data != NULL) 
+	try
 	{
-		struct section_buf s0;
-		SetupFilter(&s0, 0x00, 0x00, 1, 0, 5);  // PAT
-		AddFilter(&s0);
+		current_tp = (struct transponder *)calloc(1, sizeof(*current_tp));
+		INIT_LIST_HEAD(&current_tp->list);
+		INIT_LIST_HEAD(&current_tp->services);
 
-		struct section_buf s2;
-		SetupFilter(&s2, 0x10, 0x40, 1, 0, 15); // NIT
-		AddFilter(&s2);
-
-		struct section_buf s1;
-		SetupFilter(&s1, 0x11, 0x42, 1, 0, 5);  // SDT
-		AddFilter(&s1);
-
-		do
+		if (m_piIMpeg2Data != NULL) 
 		{
-			ReadFilters ();
-		} while (!(list_empty(&running_filters) && list_empty(&waiting_filters)));
+			struct section_buf s0;
+			SetupFilter(&s0, 0x00, 0x00, 1, 0, 5);  // PAT
+			AddFilter(&s0);
 
-		struct list_head *pos;
-		struct service *s;
+			struct section_buf s2;
+			SetupFilter(&s2, 0x10, 0x40, 1, 0, 15); // NIT
+			AddFilter(&s2);
 
-		printf("\nNetwork_%i(\"%s\", %i, %i, 1)\n", m_networkNumber, current_tp->network_name, current_tp->frequency, current_tp->bandwidth);
+			struct section_buf s1;
+			SetupFilter(&s1, 0x11, 0x42, 1, 0, 5);  // SDT
+			AddFilter(&s1);
 
-		int i=1;
-		list_for_each(pos, &current_tp->services)
-		{
-			s = list_entry(pos, struct service, list);
-
-			for (int audio = 0 ; audio <= s->audio_num ; audio++ )
+			do
 			{
-				if (((audio < s->audio_num) && (s->audio_pid[audio])) || (s->ac3_pid))
+				ReadFilters ();
+			} while (!(list_empty(&running_filters) && list_empty(&waiting_filters)));
+
+			struct list_head *pos;
+			struct service *s;
+
+			printf("\nNetwork_%i(\"%s\", %i, %i, 1)\n", m_networkNumber, current_tp->network_name, current_tp->frequency, current_tp->bandwidth);
+
+			int i=1;
+			list_for_each(pos, &current_tp->services)
+			{
+				s = list_entry(pos, struct service, list);
+
+				for (int audio = 0 ; audio <= s->audio_num ; audio++ )
 				{
-					printf("  Program_");
-					if (i < 10) printf(" ");
-					printf("%i(\"%s", i, s->service_name);
-
-					int len = strlen((char *)s->service_name);
-					if ((audio > 0) && (audio == s->audio_num))
+					if (((audio < s->audio_num) && (s->audio_pid[audio])) || (s->ac3_pid))
 					{
-						printf(" AC3");
-						len += 4;
+						printf("  Program_");
+						if (i < 10) printf(" ");
+						printf("%i(\"%s", i, s->service_name);
+
+						int len = strlen((char *)s->service_name);
+						if ((audio > 0) && (audio == s->audio_num))
+						{
+							printf(" AC3");
+							len += 4;
+						}
+						printf("\"");
+						
+						while ( len < 20 ) { printf(" "); len++; }
+						printf(", ");
+
+						PaddingForNumber(s->service_id, 4);
+						printf("%i, ",	s->service_id);
+
+						PaddingForNumber(s->video_pid, 4);
+						printf("%i, ", s->video_pid);
+
+						if (audio < s->audio_num)
+						{
+							PaddingForNumber(s->audio_pid[audio], 5);
+							printf("%i, ", s->audio_pid[audio]);
+						}
+						else
+						{
+							PaddingForNumber(s->ac3_pid, 4);
+							printf("A%i, ", s->ac3_pid);
+						}
+						
+						PaddingForNumber(s->pmt_pid, 4);
+						printf("%i)", s->pmt_pid);
+
+						printf("    # %i", s->channel_num);
+
+						printf("\n");
+
+						i++;
 					}
-					printf("\"");
-					
-					while ( len < 20 ) { printf(" "); len++; }
-					printf(", ");
-
-					PaddingForNumber(s->service_id, 4);
-					printf("%i, ",	s->service_id);
-
-					PaddingForNumber(s->video_pid, 4);
-					printf("%i, ", s->video_pid);
-
-					if (audio < s->audio_num)
-					{
-						PaddingForNumber(s->audio_pid[audio], 5);
-						printf("%i, ", s->audio_pid[audio]);
-					}
-					else
-					{
-						PaddingForNumber(s->ac3_pid, 4);
-						printf("A%i, ", s->ac3_pid);
-					}
-					
-					PaddingForNumber(s->pmt_pid, 4);
-					printf("%i)", s->pmt_pid);
-
-					printf("    # %i", s->channel_num);
-
-					printf("\n");
-
-					i++;
 				}
 			}
+			printf("\n");
 		}
-		printf("\n");
 	}
+	catch(...)
+	{
+		printf("# Unhandled exception in Mpeg2DataParser::StartMpeg2DataScanThread()\n");
+	}
+
 	SetEvent(m_hScanningDoneEvent);
 } 
 
