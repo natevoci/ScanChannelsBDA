@@ -1,5 +1,5 @@
 /**
- *	BDACardCollection.h
+ *	BDACardCollection.cpp
  *	Copyright (C) 2004 Nate
  *
  *	This file is part of DigitalWatch, a free DTV watching and recording
@@ -20,34 +20,27 @@
  *	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef BDACARDCOLLECTION_H
-#define BDACARDCOLLECTION_H
+//this is a file from DigitalWatch 2 that i've hacked up to work here.
 
-#include "StdAfx.h"
 #include "BDACard.h"
-//#include "SystemDeviceEnumerator.h"
-#include <vector>
-//#include <bdatif.h>
+#include "StdAfx.h"
 
-class BDACardCollection  
+//#include "GlobalFunctions.h"
+//#include "FilterGraphTools.h"
+//#include <dshow.h>
+//#include <ks.h> // Must be included before ksmedia.h
+//#include <ksmedia.h> // Must be included before bdamedia.h
+//#include <bdatypes.h> // Must be included before bdamedia.h
+//#include <bdamedia.h>
+
+BDACard::BDACard()
 {
-public:
-	BDACardCollection();
-	virtual ~BDACardCollection();
+	bActive = FALSE;
+	bNew = FALSE;
+	bDetected = FALSE;
+}
 
-	BOOL LoadCards();
-	BOOL LoadCards(LPWSTR filename);
-	BOOL SaveCards(LPWSTR filename = NULL);
+BDACard::~BDACard()
+{
+}
 
-	std::vector<BDACard *> cards;
-
-private:
-	BOOL LoadCardsFromHardware();
-	BOOL LoadCardsFromFile();
-	void AddCardToList(BDACard* currCard);
-	BOOL FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, DirectShowSystemDevice** ppDemodDevice, DirectShowSystemDevice** ppCaptureDevice);
-
-	LPWSTR m_filename;
-};
-
-#endif

@@ -25,6 +25,12 @@
 #include "stdafx.h"
 #include "ScanChannelsBDA.h"
 #include "FilterGraphTools.h"
+#include "LogMessage.h"
+#include "LogMessageWriter.h"
+#include "LogMessageConsoleOutput.h"
+#include "GlobalFunctions.h"
+
+LogMessage g_log;
 
 HRESULT ShowMenu();
 HRESULT GetChannelInfo(long &freq, long &band);
@@ -33,7 +39,22 @@ int	_tmain(int argc, _TCHAR* argv[])
 {
 	HRESULT hr;
 
+	LogMessageWriter lmw;
+	lmw.SetFilename(L"ScanChannelsBDA.log");
+	int writeHandle = g_log.AddCallback(&lmw);
+
+	LogMessageConsoleOutput consOut;
+	int consoleHandle = g_log.AddCallback(&consOut);
+
+	g_log.ClearFile();
+	(g_log << "-----------------------\n").Write();
+	(g_log << "ScanChannelBDA starting\n").Write();
+	g_log.LogVersionNumber();
+
 	hr = ShowMenu();
+
+	g_log.RemoveCallback(writeHandle);
+	g_log.RemoveCallback(consoleHandle);
 
 	return 0;
 }

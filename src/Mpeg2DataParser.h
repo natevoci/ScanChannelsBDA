@@ -31,6 +31,8 @@
 #include <mpeg2data.h>
 #include <mpeg2bits.h>
 #include <vector>
+#include "LogMessage.h"
+#include "LogMessageWriter.h"
 
 #define AUDIO_CHAN_MAX (32)
 #define CA_SYSTEM_ID_MAX (16)
@@ -135,7 +137,9 @@ public:
 
 	void PrintDigitalWatchChannelsIni();
 
-	void SetVerbose(BOOL verb) { verbose = verb; }
+	LogMessage * VerboseOutput() { return &verbose; }
+	LogMessage * Output() { return &output; }
+
 
 private:
 	void SetupFilter (struct section_buf* s, int pid, int tid, int run_once, int segmented, int timeout);
@@ -186,7 +190,6 @@ private:
 	int long_timeout;
 	int m_networkNumber;
 
-	BOOL verbose;
 	BOOL m_bThreadStarted;
 	BOOL m_bActivity;
 
@@ -194,6 +197,9 @@ private:
 	vector<transponder *> transponders;
 
 	vector<section_buf *> waiting_filters;
+
+	LogMessage verbose;
+	LogMessage output;
 };
 
 #endif

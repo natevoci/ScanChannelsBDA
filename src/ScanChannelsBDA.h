@@ -28,6 +28,8 @@
 #include "stdafx.h"
 #include "Mpeg2DataParser.h"
 #include "BDACardCollection.h"
+#include "LogMessage.h"
+#include "LogMessageConsoleOutput.h"
 
 #include <bdatif.h>
 
@@ -41,19 +43,16 @@ public:
 	HRESULT	BuildGraph();
 	HRESULT	ConnectGraph();
 	HRESULT	LockChannel(long lFrequency, long lBandwidth, BOOL &locked, BOOL &present, long &strength, long &quality);
-	HRESULT	newRequest(long lFrequency, long lBandwidth, ITuneRequest* &pExTuneRequest);
-	HRESULT	InitialiseTuningSpace();
 
 	HRESULT selectCard();
 	void AddNetwork(long freq, long band);
 	HRESULT scanNetworks();
 	HRESULT scanAll();
-	//HRESULT scanOne();
 
 	HRESULT SignalStatistics(long frequency, long bandwidth);
 
 	BOOL IsVerbose() { return m_bVerbose; }
-	void ToggleVerbose() { m_bVerbose = !m_bVerbose; }
+	void ToggleVerbose();
 
 	BOOL StartGraph();
 	BOOL StopGraph();
@@ -78,7 +77,6 @@ private:
 	void DestroyGraph();
 
 	HRESULT scanChannel(long channelNumber, long frequency, long bandwidth);
-	HRESULT scanChannels();
 
 	CComPtr <IBaseFilter> m_pBDANetworkProvider;
 	CComPtr <IBaseFilter> m_pBDATuner;
@@ -96,6 +94,10 @@ private:
 	CComPtr <IMediaControl> m_piMediaControl;
 
 	Mpeg2DataParser m_mpeg2parser;
+
+	LogMessageConsoleOutput m_console;
+	int m_consoleHandle;
+	int m_consoleVerboseHandle;
 
 	BDACardCollection cardList;
 	BDACard *m_pBDACard;

@@ -1,6 +1,6 @@
 /**
- *	BDACardCollection.h
- *	Copyright (C) 2004 Nate
+ *	LogMessageConsoleOutput.h
+ *	Copyright (C) 2004 
  *
  *	This file is part of DigitalWatch, a free DTV watching and recording
  *	program for the VisionPlus DVB-T.
@@ -20,34 +20,18 @@
  *	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef BDACARDCOLLECTION_H
-#define BDACARDCOLLECTION_H
+#ifndef LOGMESSAGECONSOLEOUTPUT_H
+#define LOGMESSAGECONSOLEOUTPUT_H
 
 #include "StdAfx.h"
-#include "BDACard.h"
-//#include "SystemDeviceEnumerator.h"
-#include <vector>
-//#include <bdatif.h>
+#include "LogMessage.h"
 
-class BDACardCollection  
+class LogMessageConsoleOutput : public LogMessageCallback
 {
 public:
-	BDACardCollection();
-	virtual ~BDACardCollection();
-
-	BOOL LoadCards();
-	BOOL LoadCards(LPWSTR filename);
-	BOOL SaveCards(LPWSTR filename = NULL);
-
-	std::vector<BDACard *> cards;
-
-private:
-	BOOL LoadCardsFromHardware();
-	BOOL LoadCardsFromFile();
-	void AddCardToList(BDACard* currCard);
-	BOOL FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, DirectShowSystemDevice** ppDemodDevice, DirectShowSystemDevice** ppCaptureDevice);
-
-	LPWSTR m_filename;
+	LogMessageConsoleOutput();
+	virtual ~LogMessageConsoleOutput();
+	virtual void Show(LPSTR pStr);
 };
 
 #endif

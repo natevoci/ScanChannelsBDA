@@ -1,5 +1,5 @@
 /**
- *	BDACardCollection.h
+ *	LogMessageWriter.h
  *	Copyright (C) 2004 Nate
  *
  *	This file is part of DigitalWatch, a free DTV watching and recording
@@ -20,34 +20,22 @@
  *	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef BDACARDCOLLECTION_H
-#define BDACARDCOLLECTION_H
+#ifndef LOGMESSAGEWRITER_H
+#define LOGMESSAGEWRITER_H
 
 #include "StdAfx.h"
-#include "BDACard.h"
-//#include "SystemDeviceEnumerator.h"
-#include <vector>
-//#include <bdatif.h>
+#include "LogMessage.h"
 
-class BDACardCollection  
+class LogMessageWriter : public LogMessageCallback
 {
 public:
-	BDACardCollection();
-	virtual ~BDACardCollection();
-
-	BOOL LoadCards();
-	BOOL LoadCards(LPWSTR filename);
-	BOOL SaveCards(LPWSTR filename = NULL);
-
-	std::vector<BDACard *> cards;
-
+	LogMessageWriter();
+	virtual ~LogMessageWriter();
+	void SetFilename(LPWSTR filename);
+	virtual void Write(LPSTR pStr);
+	virtual void Clear();
 private:
-	BOOL LoadCardsFromHardware();
-	BOOL LoadCardsFromFile();
-	void AddCardToList(BDACard* currCard);
-	BOOL FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, DirectShowSystemDevice** ppDemodDevice, DirectShowSystemDevice** ppCaptureDevice);
-
-	LPWSTR m_filename;
+	LPWSTR m_logFilename;
 };
 
 #endif

@@ -224,3 +224,23 @@ void strCopyW2A(LPSTR &dest, LPCWSTR src, long length)
 	wcstombs(dest, src, length);
 }
 
+void strCopy(LPSTR &dest, LPCSTR src)
+{
+	strCopy(dest, src, -1);
+}
+
+void strCopy(LPWSTR &dest, LPCWSTR src)
+{
+	strCopy(dest, src, -1);
+}
+
+void strCopyA2W(LPWSTR &dest, LPCSTR src)
+{
+	strCopyA2W(dest, src, -1);
+}
+
+void strCopyW2A(LPSTR &dest, LPCWSTR src)
+{
+	strCopyW2A(dest, src, -1);
+}
+

@@ -52,7 +52,7 @@ Mpeg2DataParser::Mpeg2DataParser()
 	m_networkNumber = 0;
 	current_tp = NULL;
 
-	verbose = FALSE;
+	//verbose = FALSE;
 	m_bThreadStarted = FALSE;
 	m_bActivity = FALSE;
 }
@@ -197,7 +197,7 @@ void Mpeg2DataParser::StartMpeg2DataScanThread()
 	}
 	catch(...)
 	{
-		printf("# Unhandled exception in Mpeg2DataParser::StartMpeg2DataScanThread()\n");
+		output.showf("# Unhandled exception in Mpeg2DataParser::StartMpeg2DataScanThread()\n");
 	}
 
 	m_bActivity = FALSE;
@@ -263,8 +263,7 @@ void Mpeg2DataParser::ReadSection(struct section_buf *s)
 			WORD cSections;
 			if (SUCCEEDED(hr = piSectionList->GetNumberOfSections(&cSections)))
 			{
-				
-				if (verbose) printf(_T("\n%d section(s) found for pid=%.4x, tid=%.2x\n"), cSections, pid, tid); 
+				verbose.showf(_T("\n%d section(s) found for pid=%.4x, tid=%.2x\n"), cSections, pid, tid);
 			
 				for (WORD i = 0; i < cSections; i++)
 				{
@@ -283,14 +282,14 @@ void Mpeg2DataParser::ReadSection(struct section_buf *s)
 			}
 			else
 			{
-				printf(_T("Error 0x%x getting number of sections\n"), hr); 
+				output.showf(_T("Error 0x%x getting number of sections\n"), hr); 
 			}
 			
 			piSectionList->Release();
 		}
 		else
 		{
-			printf(_T("Timeout getting table (pid=%.4x, tid=%.2x)\n"), pid, tid);
+			output.showf(_T("Timeout getting table (pid=%.4x, tid=%.2x)\n"), pid, tid);
 		}
 	} 
 }
@@ -353,7 +352,7 @@ void Mpeg2DataParser::parse_iso639_language_descriptor (const unsigned char *buf
 
 	if (len >= 4)
 	{
-		if (verbose) printf("    LANG=%.3s %d\n", buf, buf[3]);
+		verbose.showf("    LANG=%.3s %d\n", buf, buf[3]);
 		memcpy(s->audio_lang[s->audio_num], buf, 3);
 #if 0
 		/* seems like the audio_type is wrong all over the place */
@@ -379,7 +378,7 @@ void Mpeg2DataParser::parse_network_name_descriptor (const unsigned char *buf, s
 	memcpy (tp->network_name, buf+2, len);
 	tp->network_name[len] = '\0';
 
-	if (verbose) printf("    Network Name '%.*s'\n", len, buf + 2);
+	verbose.showf("    Network Name '%.*s'\n", len, buf + 2);
 }
 
 void Mpeg2DataParser::print_unknown_descriptor(const unsigned char *buf, int descriptor_len)
@@ -394,7 +393,7 @@ void Mpeg2DataParser::parse_terrestrial_delivery_system_descriptor (const unsign
 	//struct dvb_ofdm_parameters *o;
 
 	if (!t) {
-		if (verbose) printf("    terrestrial_delivery_system_descriptor outside transport stream definition (ignored)\n");
+		verbose.showf("    terrestrial_delivery_system_descriptor outside transport stream definition (ignored)\n");
 		return;
 	}
 	//o = &t->param.u.ofdm;
@@ -404,27 +403,27 @@ void Mpeg2DataParser::parse_terrestrial_delivery_system_descriptor (const unsign
 	t->frequency = (buf[2] << 24) | (buf[3] << 16);
 	t->frequency |= (buf[4] << 8) | buf[5];
 	t->frequency /= 100;
-	if (verbose) printf("    Frequency %i", t->frequency);
+	verbose.showf("    Frequency %i", t->frequency);
 
 
 	t->bandwidth = 8 - ((buf[6] >> 5) & 0x3);
-	if (verbose) printf("    Bandwidth %i", t->bandwidth);
+	verbose.showf("    Bandwidth %i", t->bandwidth);
 
 
 	//o->constellation = m_tab[(buf[7] >> 6) & 0x3];
 	switch ((buf[7] >> 6) & 0x3)
 	{
 	case 0:
-		if (verbose) printf("    QPSK\n");
+		verbose.showf("    QPSK\n");
 		break;
 	case 1:
-		if (verbose) printf("    QAM_16\n");
+		verbose.showf("    QAM_16\n");
 		break;
 	case 2:
-		if (verbose) printf("    QAM_64\n");
+		verbose.showf("    QAM_64\n");
 		break;
 	case 3:
-		if (verbose) printf("    QAM_AUTO\n");
+		verbose.showf("    QAM_AUTO\n");
 		break;
 	}
 
@@ -434,22 +433,22 @@ void Mpeg2DataParser::parse_terrestrial_delivery_system_descriptor (const unsign
 	switch (buf[7] & 0x7)
 	{
 	case 0:
-		if (verbose) printf("    HP - FEC_1_2");
+		verbose.showf("    HP - FEC_1_2");
 		break;
 	case 1:
-		if (verbose) printf("    HP - FEC_2_3");
+		verbose.showf("    HP - FEC_2_3");
 		break;
 	case 2:
-		if (verbose) printf("    HP - FEC_3_4");
+		verbose.showf("    HP - FEC_3_4");
 		break;
 	case 3:
-		if (verbose) printf("    HP - FEC_5_6");
+		verbose.showf("    HP - FEC_5_6");
 		break;
 	case 4:
-		if (verbose) printf("    HP - FEC_7_8");
+		verbose.showf("    HP - FEC_7_8");
 		break;
 	default:
-		if (verbose) printf("    HP - FEC_AUTO");
+		verbose.showf("    HP - FEC_AUTO");
 		break;
 	}
 
@@ -458,22 +457,22 @@ void Mpeg2DataParser::parse_terrestrial_delivery_system_descriptor (const unsign
 	switch ((buf[8] >> 5) & 0x7)
 	{
 	case 0:
-		if (verbose) printf("    LP - FEC_1_2");
+		verbose.showf("    LP - FEC_1_2");
 		break;
 	case 1:
-		if (verbose) printf("    LP - FEC_2_3");
+		verbose.showf("    LP - FEC_2_3");
 		break;
 	case 2:
-		if (verbose) printf("    LP - FEC_3_4");
+		verbose.showf("    LP - FEC_3_4");
 		break;
 	case 3:
-		if (verbose) printf("    LP - FEC_5_6");
+		verbose.showf("    LP - FEC_5_6");
 		break;
 	case 4:
-		if (verbose) printf("    LP - FEC_7_8");
+		verbose.showf("    LP - FEC_7_8");
 		break;
 	default:
-		if (verbose) printf("    LP - FEC_AUTO");
+		verbose.showf("    LP - FEC_AUTO");
 		break;
 	}
 
@@ -485,16 +484,16 @@ void Mpeg2DataParser::parse_terrestrial_delivery_system_descriptor (const unsign
 	switch (buf[8] & 0x2)
 	{
 	case 0:
-		if (verbose) printf("    Transmission mode 2K\n");
+		verbose.showf("    Transmission mode 2K\n");
 		break;
 	default:
-		if (verbose) printf("    Transmission mode 8K\n");
+		verbose.showf("    Transmission mode 8K\n");
 		break;
 	}
 
 	t->other_frequency_flag = (buf[8] & 0x01);
 	if (t->other_frequency_flag)
-		if (verbose) printf("    Other frequency flags set\n");
+		verbose.showf("    Other frequency flags set\n");
 
 	//if (verbosity >= 5) {
 	//	debug("0x%#04x/0x%#04x ", t->network_id, t->transport_stream_id);
@@ -525,7 +524,7 @@ void Mpeg2DataParser::parse_frequency_list_descriptor (const unsigned char *buf,
 	{
 		t->other_f[i] = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
 		t->other_f[i] /= 100;
-		if (verbose) printf("    Alternate Frequency %i\n", t->other_f[i]);
+		verbose.showf("    Alternate Frequency %i\n", t->other_f[i]);
 		buf += 4;
 	}
 }
@@ -546,7 +545,7 @@ void Mpeg2DataParser::parse_terrestrial_uk_channel_number (const unsigned char *
 	for (i = 0; i < n; i++) {
 		service_id = (buf[0]<<8)|(buf[1]&0xff);
 		channel_num = (buf[2]&0x03<<8)|(buf[3]&0xff);
-		if (verbose) printf("    Service ID 0x%x has channel number %d\n", service_id, channel_num);
+		verbose.showf("    Service ID 0x%x has channel number %d\n", service_id, channel_num);
 
 		//Might need to loop here for other transponders
 		s = find_service(t, service_id);
@@ -616,17 +615,16 @@ void Mpeg2DataParser::parse_service_descriptor (const unsigned char *buf, struct
 		s->service_name = 0;
 	}
 
-	if (verbose) 
-		printf("  0x%04x 0x%04x: pmt_pid 0x%04x %s -- %s (%s%s)\n",
-			s->transport_stream_id,
-			s->service_id,
-			s->pmt_pid,
-			s->provider_name, s->service_name,
-			s->running == RM_NOT_RUNNING ? "not running" :
-			s->running == RM_STARTS_SOON ? "starts soon" :
-			s->running == RM_PAUSING     ? "pausing" :
-			s->running == RM_RUNNING     ? "running" : "???",
-			s->scrambled ? ", scrambled" : "");
+	verbose.showf(  "  0x%04x 0x%04x: pmt_pid 0x%04x %s -- %s (%s%s)\n",
+				s->transport_stream_id,
+				s->service_id,
+				s->pmt_pid,
+				s->provider_name, s->service_name,
+				s->running == RM_NOT_RUNNING ? "not running" :
+				s->running == RM_STARTS_SOON ? "starts soon" :
+				s->running == RM_PAUSING     ? "pausing" :
+				s->running == RM_RUNNING     ? "running" : "???",
+				s->scrambled ? ", scrambled" : "");
 }
 
 int Mpeg2DataParser::find_descriptor(__int8 tag, const unsigned char *buf, int remaining_length, const unsigned char **desc, int *desc_len)
@@ -636,7 +634,7 @@ int Mpeg2DataParser::find_descriptor(__int8 tag, const unsigned char *buf, int r
 		unsigned char descriptor_len = buf[1] + 2;
 
 		if (!descriptor_len) {
-			if (verbose) printf("descriptor_tag == 0x%02x, len is 0\n", descriptor_tag);
+			verbose.showf("descriptor_tag == 0x%02x, len is 0\n", descriptor_tag);
 			break;
 		}
 
@@ -663,7 +661,7 @@ void Mpeg2DataParser::parse_descriptorsPMT(const unsigned char *buf, int remaini
 
 		if (!descriptor_len)
 		{
-			if (verbose) printf("descriptor_tag == 0x%02x, len is 0\n", descriptor_tag);
+			verbose.showf("descriptor_tag == 0x%02x, len is 0\n", descriptor_tag);
 			break;
 		}
 
@@ -674,7 +672,7 @@ void Mpeg2DataParser::parse_descriptorsPMT(const unsigned char *buf, int remaini
 				break;
 
 			default:
-				if (verbose) printf("    skip descriptor 0x%02x\n", descriptor_tag);
+				verbose.showf("    skip descriptor 0x%02x\n", descriptor_tag);
 				print_unknown_descriptor(buf, descriptor_len);
 		};
 
@@ -692,36 +690,36 @@ void Mpeg2DataParser::parse_descriptorsNIT(const unsigned char *buf, int remaini
 
 		if (!descriptor_len)
 		{
-			if (verbose) printf("descriptor_tag == 0x%02x, len is 0\n", descriptor_tag);
+			verbose.showf("descriptor_tag == 0x%02x, len is 0\n", descriptor_tag);
 			break;
 		}
 
 		switch (descriptor_tag)
 		{
 			case 0x40:
-				if (verbose) printf("  Found a network name descriptor\n");
+				verbose.showf("  Found a network name descriptor\n");
 				parse_network_name_descriptor (buf, tp);
 				break;
 
 			case 0x43:
-				if (verbose) printf("  Found a satellite delivery system descriptor\n");
+				verbose.showf("  Found a satellite delivery system descriptor\n");
 				//parse_satellite_delivery_system_descriptor (buf, tp);
 				print_unknown_descriptor(buf, descriptor_len);
 				break;
 
 			case 0x44:
-				if (verbose) printf("  Found a cable delivery system descriptor\n");
+				verbose.showf("  Found a cable delivery system descriptor\n");
 				//parse_cable_delivery_system_descriptor (buf, tp);
 				print_unknown_descriptor(buf, descriptor_len);
 				break;
 
 			case 0x5a:
-				if (verbose) printf("  Found a terrestrial delivery system descriptor\n");
+				verbose.showf("  Found a terrestrial delivery system descriptor\n");
 				parse_terrestrial_delivery_system_descriptor (buf, tp);
 				break;
 
 			case 0x62:
-				if (verbose) printf("  Found a frequency list descriptor\n");
+				verbose.showf("  Found a frequency list descriptor\n");
 				parse_frequency_list_descriptor (buf, tp);
 				break;
 
@@ -730,12 +728,12 @@ void Mpeg2DataParser::parse_descriptorsNIT(const unsigned char *buf, int remaini
 				 * so we parse this only if the user says so to avoid
 				 * problems when 0x83 is something entirely different... */
 				//if (vdr_dump_channum)
-				if (verbose) printf("  Found a terrestrial uk channel number\n");
+				verbose.showf("  Found a terrestrial uk channel number\n");
 				parse_terrestrial_uk_channel_number (buf, tp);
 				break;
 
 			default:
-				if (verbose) printf("  skip descriptor 0x%02x\n", descriptor_tag);
+				verbose.showf("  skip descriptor 0x%02x\n", descriptor_tag);
 				print_unknown_descriptor(buf, descriptor_len);
 				
 		};
@@ -754,7 +752,7 @@ void Mpeg2DataParser::parse_descriptorsSDT(const unsigned char *buf, int remaini
 
 		if (!descriptor_len)
 		{
-			if (verbose) printf("  descriptor_tag == 0x%02x, len is 0\n", descriptor_tag);
+			verbose.showf("  descriptor_tag == 0x%02x, len is 0\n", descriptor_tag);
 			break;
 		}
 
@@ -769,7 +767,7 @@ void Mpeg2DataParser::parse_descriptorsSDT(const unsigned char *buf, int remaini
 				break;
 */
 			default:
-				if (verbose) printf("  skip descriptor 0x%02x\n", descriptor_tag);
+				verbose.showf("  skip descriptor 0x%02x\n", descriptor_tag);
 				print_unknown_descriptor(buf, descriptor_len);
 		};
 
@@ -795,22 +793,22 @@ void Mpeg2DataParser::parse_pat(const unsigned char *buf, int section_length, in
 					current_tp = alloc_transponder(transport_stream_id);
 			}
 
-			if (verbose) printf("  Found service id 0x%04x with PMT 0x%04x\n", service_id, pmtPID);
+			verbose.showf("  Found service id 0x%04x with PMT 0x%04x\n", service_id, pmtPID);
 			/* SDT might have been parsed first... */
 			s = find_service(current_tp, service_id);
 			if (!s)
 				s = alloc_service(current_tp, service_id);
 			else
-				if (verbose) printf("Existing service object found\n");
+				verbose.showf("Existing service object found\n");
 
 			s->pmt_pid = pmtPID;
 			if (!s->pmt_pid)
 			{
-				if (verbose) printf("Skipping adding filter. pmt pid is 0x00\n");
+				verbose.showf("Skipping adding filter. pmt pid is 0x00\n");
 			}
 			else if (s->priv)
 			{
-				if (verbose) printf("Skipping adding filter.\n");
+				verbose.showf("Skipping adding filter.\n");
 			}
 			else
 			{
@@ -823,7 +821,7 @@ void Mpeg2DataParser::parse_pat(const unsigned char *buf, int section_length, in
 		}
 		else
 		{
-			if (verbose) printf("Skipping nit pid entry with service_id 0x00\n");
+			verbose.showf("Skipping nit pid entry with service_id 0x00\n");
 		}
 
 		buf += 4;
@@ -841,7 +839,7 @@ void Mpeg2DataParser::parse_pmt (const unsigned char *buf, int section_length, i
 
 	s = find_service (current_tp, service_id);
 	if (!s) {
-		if (verbose) printf("PMT for serivce_id 0x%04x was not in PAT\n", service_id);
+		verbose.showf("PMT for serivce_id 0x%04x was not in PAT\n", service_id);
 		return;
 	}
 
@@ -862,24 +860,24 @@ void Mpeg2DataParser::parse_pmt (const unsigned char *buf, int section_length, i
 		switch (streamType) {
 		case 0x01:
 		case 0x02:
-			if (verbose) printf("  VIDEO     : PID 0x%04x\n", elementary_pid);
+			verbose.showf("  VIDEO     : PID 0x%04x\n", elementary_pid);
 			if (s->video_pid == 0)
 				s->video_pid = elementary_pid;
 			break;
 		case 0x03:
 		case 0x04:
-			if (verbose) printf("  AUDIO     : PID 0x%04x\n", elementary_pid);
+			verbose.showf("  AUDIO     : PID 0x%04x\n", elementary_pid);
 			if (s->audio_num < AUDIO_CHAN_MAX) {
 				s->audio_pid[s->audio_num] = elementary_pid;
 				parse_descriptorsPMT (buf, ES_info_len, s);
 				s->audio_num++;
 			}
 			else
-				if (verbose) printf("more than %i audio channels, truncating\n", AUDIO_CHAN_MAX);
+				verbose.showf("more than %i audio channels, truncating\n", AUDIO_CHAN_MAX);
 			break;
 		case 0x06:
 			if (find_descriptor(0x56, buf, ES_info_len, NULL, NULL)) {
-				if (verbose) printf("  TELETEXT  : PID 0x%04x\n", elementary_pid);
+				verbose.showf("  TELETEXT  : PID 0x%04x\n", elementary_pid);
 				s->teletext_pid = elementary_pid;
 				break;
 			}
@@ -889,19 +887,19 @@ void Mpeg2DataParser::parse_pmt (const unsigned char *buf, int section_length, i
 				 * will also be present; so we can be quite confident
 				 * that we catch DVB subtitling streams only here, w/o
 				 * parsing the descriptor. */
-				if (verbose) printf("  SUBTITLING: PID 0x%04x\n", elementary_pid);
+				verbose.showf("  SUBTITLING: PID 0x%04x\n", elementary_pid);
 				s->subtitling_pid = elementary_pid;
 				break;
 			}
 			else if (find_descriptor(0x6a, buf, ES_info_len, NULL, NULL)) {
-				if (verbose) printf("  AC3       : PID 0x%04x\n", elementary_pid);
+				verbose.showf("  AC3       : PID 0x%04x\n", elementary_pid);
 				s->ac3_pid = elementary_pid;
 				parse_descriptorsPMT(buf, ES_info_len, s);
 				break;
 			}
 			/* fall through */
 		default:
-			if (verbose) printf("  OTHER     : PID 0x%04x TYPE 0x%02x\n", elementary_pid, streamType);
+			verbose.showf("  OTHER     : PID 0x%04x TYPE 0x%02x\n", elementary_pid, streamType);
 		};
 
 		buf += ES_info_len;
@@ -913,7 +911,7 @@ void Mpeg2DataParser::parse_pmt (const unsigned char *buf, int section_length, i
     tmp += sprintf(tmp, "0x%04x (%.4s)", s->audio_pid[0], s->audio_lang[0]);
 
 	if (s->audio_num > AUDIO_CHAN_MAX) {
-		if (verbose) printf("more than %i audio channels: %i, truncating to %i\n",
+		verbose.showf("more than %i audio channels: %i, truncating to %i\n",
 							AUDIO_CHAN_MAX, s->audio_num, AUDIO_CHAN_MAX);
 		s->audio_num = AUDIO_CHAN_MAX;
 	}
@@ -921,8 +919,7 @@ void Mpeg2DataParser::parse_pmt (const unsigned char *buf, int section_length, i
     for (i=1; i<s->audio_num; i++)
             tmp += sprintf(tmp, ", 0x%04x (%.4s)", s->audio_pid[i], s->audio_lang[i]);
 
-    if (verbose)
-		printf("0x%04x 0x%04x: %s -- %s, pmt_pid 0x%04x, vpid 0x%04x, apid %s\n",
+    verbose.showf  ("0x%04x 0x%04x: %s -- %s, pmt_pid 0x%04x, vpid 0x%04x, apid %s\n",
 				s->transport_stream_id,
 				s->service_id,
 				s->provider_name, s->service_name,
@@ -936,7 +933,7 @@ void Mpeg2DataParser::parse_nit (const unsigned char *buf, int section_length, i
 
 	if (section_length < descriptors_loop_len + 4)
 	{
-		if (verbose) printf("section too short: network_id == 0x%04x, section_length == %i, "
+		verbose.showf("section too short: network_id == 0x%04x, section_length == %i, "
 							"descriptors_loop_len == %i\n",
 							network_id, section_length, descriptors_loop_len);
 		return;
@@ -962,14 +959,14 @@ void Mpeg2DataParser::parse_nit (const unsigned char *buf, int section_length, i
 
 		if (section_length < descriptors_loop_len + 4)
 		{
-			if (verbose) printf("section too short: transport_stream_id == 0x%04x, "
+			verbose.showf("section too short: transport_stream_id == 0x%04x, "
 								"section_length == %i, descriptors_loop_len == %i\n",
 								t->transport_stream_id, section_length,
 								descriptors_loop_len);
 			break;
 		}
 
-		if (verbose) printf("  transport_stream_id 0x%04x\n", t->transport_stream_id);
+		verbose.showf("  transport_stream_id 0x%04x\n", t->transport_stream_id);
 
 
 		parse_descriptorsNIT (buf + 6, descriptors_loop_len, t);
@@ -1005,7 +1002,7 @@ void Mpeg2DataParser::parse_sdt (const unsigned char *buf, int section_length, i
 
 		if (section_length < remainingLength || !remainingLength)
 		{
-			if (verbose) printf("  section too short: service_id == 0x%02x, section_length == %i, "
+			verbose.showf("  section too short: service_id == 0x%02x, section_length == %i, "
 								"remainingLength == %i\n",
 								service_id, section_length,
 								remainingLength);
@@ -1087,7 +1084,7 @@ int Mpeg2DataParser::parse_section (struct section_buf *s)
 		struct section_buf *next_seg = s->next_seg;
 
 		if (s->section_version_number != -1 && s->table_id_ext != -1)
-			if (verbose) printf("section version_number or table_id_ext changed "
+			verbose.showf("section version_number or table_id_ext changed "
 								"%d -> %d / %04x -> %04x\n",
 								s->section_version_number, section_version_number,
 								s->table_id_ext, table_id_ext);
@@ -1104,7 +1101,7 @@ int Mpeg2DataParser::parse_section (struct section_buf *s)
 	if (!get_bit(s->section_done, section_number)) {
 		set_bit (s->section_done, section_number);
 
-		if (verbose) printf("pid 0x%02x tid 0x%02x table_id_ext 0x%04x, "
+		verbose.showf("pid 0x%02x tid 0x%02x table_id_ext 0x%04x, "
 							"%i/%i (version %i)\n",
 							s->pid, table_id, table_id_ext, section_number,
 							last_section_number, section_version_number);
@@ -1112,25 +1109,25 @@ int Mpeg2DataParser::parse_section (struct section_buf *s)
 		switch (table_id)
 		{
 		case 0x00:
-			if (verbose) printf("PAT\n");
+			verbose.showf("PAT\n");
 			parse_pat (buf, section_length, table_id_ext);
 			break;
 
 		case 0x02:
-			if (verbose) printf("PMT 0x%04x for service 0x%04x\n", s->pid, table_id_ext);
+			verbose.showf("PMT 0x%04x for service 0x%04x\n", s->pid, table_id_ext);
 			parse_pmt (buf, section_length, table_id_ext);
 			break;
 
 		case 0x41:
-			if (verbose) printf("////////////////////////////////////////////// NIT other\n");
+			verbose.showf("////////////////////////////////////////////// NIT other\n");
 		case 0x40:
-			if (verbose) printf("NIT (%s TS)\n", table_id == 0x40 ? "actual":"other");
+			verbose.showf("NIT (%s TS)\n", table_id == 0x40 ? "actual":"other");
 			parse_nit (buf, section_length, table_id_ext);
 			break;
 
 		case 0x42:
 		case 0x46:
-			if (verbose) printf("SDT (%s TS)\n", table_id == 0x42 ? "actual":"other");
+			verbose.showf("SDT (%s TS)\n", table_id == 0x42 ? "actual":"other");
 			parse_sdt (buf, section_length, table_id_ext);
 			break;
 
@@ -1160,64 +1157,58 @@ int Mpeg2DataParser::parse_section (struct section_buf *s)
 
 void Mpeg2DataParser::PrintByteArray(const BYTE *pData, long cbSize)
 {
-	if (verbose)
+	char str[9];
+	memset((char*)&str, 32, 8);
+	str[8] = '\0';
+	for (int iter = 0; iter < cbSize; iter++)
 	{
-		char str[9];
-		memset((char*)&str, 32, 8);
-		str[8] = '\0';
-		for (int iter = 0; iter < cbSize; iter++)
+		int pos = iter % 8;
+
+		if (pos == 0)
+			verbose.showf("\t");
+
+		verbose.showf("0x%.2x ", pData[iter]);
+		if ((pData[iter] >= 32) && (pData[iter] <= 126))
+			str[pos] = pData[iter];
+
+		if (pos == 7)
 		{
-			int pos = iter % 8;
-
-			if (pos == 0)
-				wprintf(L"\t");
-
-			wprintf(L"0x%.2x ", pData[iter]);
-			if ((pData[iter] >= 32) && (pData[iter] <= 126))
-				str[pos] = pData[iter];
-
-			if (pos == 7)
-			{
-				wprintf(L"  %S\n", (char*)&str);
-				memset((char*)&str, 32, 8);
-			}
-		} 
-		int missing = 8 - (((iter-1)%8)+1);
-		if (missing != 0)
-		{
-			for (int i=0 ; i< missing ; i++ )
-				wprintf(L"     ");
-			wprintf(L"  %S\n", (char*)&str);
+			verbose.showf("  %S\n", (char*)&str);
+			memset((char*)&str, 32, 8);
 		}
+	} 
+	int missing = 8 - (((iter-1)%8)+1);
+	if (missing != 0)
+	{
+		for (int i=0 ; i< missing ; i++ )
+			verbose.showf("     ");
+		verbose.showf("  %S\n", (char*)&str);
 	}
 }
 
 void Mpeg2DataParser::PrintWordArray(const BYTE *pData, long cbSize)
 { 
-	if (verbose)
+	int iter = 0;
+	while (iter < cbSize) 
 	{
-		int iter = 0;
-		while (iter < cbSize) 
-		{
-			if (iter % 16 == 0)
-				wprintf(L"\t");
+		if (iter % 16 == 0)
+			verbose.showf("\t");
 
-			if (iter%2 == 0)
-				wprintf(L"0x");
+		if (iter%2 == 0)
+			verbose.showf("0x");
 
-			printf(_T("%.2x"), pData[iter]);
+		verbose.showf(_T("%.2x"), pData[iter]);
 
-			if (iter%2 == 1)
-				wprintf(L" ");
+		if (iter%2 == 1)
+			verbose.showf(" ");
 
-			if (iter % 16 == 15)
-				wprintf(L"\n");
+		if (iter % 16 == 15)
+			verbose.showf("\n");
 
-			iter++;
-		} 
-		if (iter % 16 != 0)
-			wprintf(L"\n");
-	}
+		iter++;
+	} 
+	if (iter % 16 != 0)
+		verbose.showf("\n");
 }
 
 void Mpeg2DataParser::PaddingForNumber(long number, long totalWidth)
@@ -1231,7 +1222,7 @@ void Mpeg2DataParser::PaddingForNumber(long number, long totalWidth)
 
 	while ( len < totalWidth )
 	{
-		printf(" ");
+		output.showf(" ");
 		len++;
 	}
 }
@@ -1240,14 +1231,14 @@ void Mpeg2DataParser::PrintDigitalWatchChannelsIni()
 {
 	struct service *s;
 
-	printf("\nNetwork_%i(\"%s\", %i, %i, 1)\n", m_networkNumber, current_tp->network_name, current_tp->frequency, current_tp->bandwidth);
+	output.showf("\nNetwork_%i(\"%s\", %i, %i, 1)\n", m_networkNumber, current_tp->network_name, current_tp->frequency, current_tp->bandwidth);
 
 	int i;
 	if (current_tp->n_other_f > 0)
-		printf("#Alternate %s\n", ((current_tp->n_other_f > 1) ? "frequencies" : "frequency"));
+		output.showf("#Alternate %s\n", ((current_tp->n_other_f > 1) ? "frequencies" : "frequency"));
 	for ( i=0 ; i<current_tp->n_other_f ; i++ )
 	{
-		printf("#Network_%i(\"%s\", %i, %i, 1)\n", m_networkNumber, current_tp->network_name, current_tp->other_f[i], current_tp->bandwidth);
+		output.showf("#Network_%i(\"%s\", %i, %i, 1)\n", m_networkNumber, current_tp->network_name, current_tp->other_f[i], current_tp->bandwidth);
 	}
 
 	i=1;
@@ -1260,56 +1251,56 @@ void Mpeg2DataParser::PrintDigitalWatchChannelsIni()
 		{
 			if (((audio < s->audio_num) && (s->audio_pid[audio])) || (s->ac3_pid))
 			{
-				printf("  Program_");
-				if (i < 10) printf(" ");
-				printf("%i(\"%s", i, s->service_name);
+				output.showf("  Program_");
+				if (i < 10) output.showf(" ");
+				output.showf("%i(\"%s", i, s->service_name);
 
 				int len = strlen((char *)s->service_name);
 				if ((audio > 0) && (audio == s->audio_num))
 				{
-					printf(" AC3");
+					output.showf(" AC3");
 					len += 4;
 				}
-				printf("\"");
+				output.showf("\"");
 				
-				while ( len < 20 ) { printf(" "); len++; }
-				printf(", ");
+				while ( len < 20 ) { output.showf(" "); len++; }
+				output.showf(", ");
 
 				PaddingForNumber(s->service_id, 4);
-				printf("%i, ",	s->service_id);
+				output.showf("%i, ",	s->service_id);
 
 				PaddingForNumber(s->video_pid, 4);
-				printf("%i, ", s->video_pid);
+				output.showf("%i, ", s->video_pid);
 
 				if (audio < s->audio_num)
 				{
 					PaddingForNumber(s->audio_pid[audio], 5);
-					printf("%i, ", s->audio_pid[audio]);
+					output.showf("%i, ", s->audio_pid[audio]);
 				}
 				else
 				{
 					PaddingForNumber(s->ac3_pid, 4);
-					printf("A%i, ", s->ac3_pid);
+					output.showf("A%i, ", s->ac3_pid);
 				}
 				
 				PaddingForNumber(s->pmt_pid, 4);
-				printf("%i)    #", s->pmt_pid);
+				output.showf("%i)    #", s->pmt_pid);
 
 				if (audio == 0)
 				{
 					if (s->channel_num)
-						printf(" LCN=%i", s->channel_num);
+						output.showf(" LCN=%i", s->channel_num);
 
 					if (s->teletext_pid)
-						printf(" Teletext=%i", s->teletext_pid);
+						output.showf(" Teletext=%i", s->teletext_pid);
 				}
 
-				printf("\n");
+				output.showf("\n");
 
 				i++;
 			}
 		}
 	}
-	printf("\n");
+	output.showf("\n");
 }
 

@@ -25,8 +25,7 @@
 #include "BDACardCollection.h"
 #include "StdAfx.h"
 #include "ParseLine.h"
-//#include "Globals.h"
-//#include "LogMessage.h"
+
 #include "GlobalFunctions.h"
 #include "FilterGraphTools.h"
 #include <dshow.h>
@@ -36,18 +35,6 @@
 #include <bdamedia.h>
 #include "FileWriter.h"
 #include "FileReader.h"
-
-BDACard::BDACard()
-{
-	bActive = FALSE;
-	bNew = FALSE;
-	bDetected = FALSE;
-}
-
-BDACard::~BDACard()
-{
-}
-
 
 BDACardCollection::BDACardCollection()
 {

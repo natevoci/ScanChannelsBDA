@@ -25,6 +25,7 @@
 #include "stdafx.h"
 #include "ScanChannelsBDA.h"
 #include "FilterGraphTools.h"
+#include "LogMessage.h"
 
 #include <ks.h> // Must be included before ksmedia.h
 #include <ksmedia.h> // Must be included before bdamedia.h
@@ -49,10 +50,13 @@ BDAChannelScan::BDAChannelScan()
 	m_Count = 0;
 	m_bScanning = FALSE;
 	m_bVerbose = FALSE;
+
+	m_consoleHandle = m_mpeg2parser.Output()->AddCallback(&m_console);
 }
 
 BDAChannelScan::~BDAChannelScan()
 {
+	m_mpeg2parser.Output()->RemoveCallback(m_consoleHandle);
 	CoUninitialize();
 }
 
@@ -63,8 +67,7 @@ HRESULT BDAChannelScan::selectCard()
 	int cardsFound = cardList.cards.size();
 	if (cardsFound == 0)
 	{
-		cout << "Could not find any BDA devices." << endl;
-		return E_FAIL;
+		return (g_log << "Could not find any BDA devices.\n").Write(E_FAIL);
 	}
 
 	BDACard *bdaCard = NULL;
@@ -72,11 +75,10 @@ HRESULT BDAChannelScan::selectCard()
 	if (cardsFound == 1)
 	{
 		m_pBDACard = *(cardList.cards.begin());
-		printf("Found BDA device: %S", m_pBDACard->tunerDevice.strFriendlyName);
-		return S_OK;
+		return (g_log << "Found BDA device: " << m_pBDACard->tunerDevice.strFriendlyName << "\n").Write(S_OK);
 	}
 
-	cout << cardsFound << " BDA devices found." << endl;
+	(g_log << cardsFound << " BDA devices found.\n").Show();
 
 	std::vector<BDACard *>::iterator it;
 	int id, cardID;
@@ -90,7 +92,6 @@ HRESULT BDAChannelScan::selectCard()
 		for ( ; it != cardList.cards.end() ; it++ )
 		{
 			bdaCard = *it;
-			//cout << id << ". " << bdaCard->tunerDevice.strFriendlyName << endl;
 			printf("%i. %S\n", id, bdaCard->tunerDevice.strFriendlyName);
 			id++;
 		}
@@ -100,7 +101,9 @@ HRESULT BDAChannelScan::selectCard()
 
 		//Did Exit get chosen?
 		if (cardID-1 == cardsFound)
-			return S_FALSE;
+		{
+			return (g_log << "Exit chosen\n").Write(E_FAIL);
+		}
 
 		//check for invalid selection
 		if ((cardID > cardsFound) || (cardID <= 0))
@@ -116,23 +119,28 @@ HRESULT BDAChannelScan::selectCard()
 			if (id == cardID)
 			{
 				m_pBDACard = *it;
-				return S_OK;
+				return (g_log << "using " << m_pBDACard->tunerDevice.strFriendlyName << "\n").Write(S_OK);
 			}
 			id++;
 		}
-		cout << "Weird error. Could not find selected device in list" << endl;
+		(g_log << "Weird error. Could not find selected device in list\n").Write();
 	}
 
-	return S_FALSE;
+	return E_FAIL;
 }
 
 void BDAChannelScan::AddNetwork(long freq, long band)
 {
 	if (m_Count < 256)
 	{
+		(g_log << "Adding network " << freq << ", " << band << "\n").Write();
 		m_freq[m_Count] = freq;
 		m_band[m_Count] = band;
 		m_Count++;
+	}
+	else
+	{
+		(g_log << "Cannot add more than 256 networks\n").Write();
 	}
 }
 
@@ -142,32 +150,27 @@ HRESULT BDAChannelScan::SetupGraph()
 
 	if (FAILED(hr = CreateGraph()))
 	{
-		cout << "Failed to create graph." << endl;
-		return hr;
+		return (g_log << "Failed to create graph.\n").Show(hr);
 	}
 	
 	if (FAILED(hr = BuildGraph()))
 	{
-		cout << "Failed to add filters to graph." << endl;
-		return hr;
+		return (g_log << "Failed to add filters to graph.\n").Show(hr);
 	}
 
 	if (FAILED(hr = ConnectGraph()))
 	{
-		cout << "Failed to connect filters in graph." << endl;
-		return hr;
+		return (g_log << "Failed to connect filters in graph.\n").Show(hr);
 	}
 
 	if (FAILED(hr = createConnectionPoint()))
 	{
-		cout << "Failed to add connection point to TIF." << endl;
-		return hr;
+		return (g_log << "Failed to add connection point to TIF.\n").Show(hr);
 	}
 
 	if (StartGraph() == FALSE)
 	{
-		cout << "Failed to start the graph" << endl;
-		return hr;
+		return (g_log << "Failed to start the graph\n").Show(hr);
 	}
 
 	return hr;
@@ -209,6 +212,8 @@ HRESULT BDAChannelScan::scanNetworks()
 {
 	HRESULT hr = S_OK;
 
+	(g_log << "Scanning Networks\n").Write();
+
 	if (FAILED(hr = SetupGraph()))
 		return hr;
 
@@ -216,7 +221,7 @@ HRESULT BDAChannelScan::scanNetworks()
 	{
 		hr = scanChannel(count+1, m_freq[count], m_band[count]);
 		if (hr == S_FALSE)
-			cout << "# Nothing found on " << m_freq[count] << "kHz frequency, moving on." << endl;
+			(g_log << "# Nothing found on " << m_freq[count] << "kHz frequency, moving on.\n").Show();
 		if (hr == E_FAIL)
 			return 1;
 	}
@@ -230,7 +235,7 @@ HRESULT BDAChannelScan::scanAll()
 {
 	HRESULT hr = S_OK;
 
-	static ULONG ulFrequencyArray[50] =
+	static int ulFrequencyArray[50] =
 	{
 		// Band III VHF
 		177500,  // 6
@@ -299,35 +304,32 @@ HRESULT BDAChannelScan::scanAll()
 		hr = scanChannel(chNum, ulFrequencyArray[count], 7);
 		if (hr == E_FAIL)
 		{
-			cout << "Error locking channel. Aborting" << endl;
-			return E_FAIL;
+			return (g_log << "Error locking channel. Aborting\n").Show(E_FAIL);
 		}
 		if (hr == S_OK)
 			continue;
 
-		cout << "# Nothing found on " << ulFrequencyArray[count] << "kHz, trying +125";
+		(g_log << "# Nothing found on " << ulFrequencyArray[count] << "kHz, trying +125").Show();
 
 		hr = scanChannel(chNum, ulFrequencyArray[count] + 125, 7);
 		if (hr == E_FAIL)
 		{
-			cout << "Error locking channel. Aborting" << endl;
-			return E_FAIL;
+			return (g_log << "\nError locking channel. Aborting\n").Show(E_FAIL);
 		}
 		if (hr == S_OK)
 			continue;
 
-		cout << ", trying -125";
+		(g_log << ", trying -125").Show();
 
 		hr = scanChannel(chNum, ulFrequencyArray[count] - 125, 7);
 		if (hr == E_FAIL)
 		{
-			cout << "Error locking channel. Aborting" << endl;
-			return E_FAIL;
+			return (g_log << "\nError locking channel. Aborting\n").Show(E_FAIL);
 		}
 		if (hr == S_OK)
 			continue;
 
-		cout << ", Nothing found" << endl;
+		(g_log << ", Nothing found\n").Show();
 
 		chNum--;
 	}
@@ -358,17 +360,19 @@ HRESULT BDAChannelScan::SignalStatistics(long frequency, long bandwidth)
 		switch (hr)
 		{
 			case S_OK:
-				printf("# locked %ld, %ld signal locked = %s present = %s strength = %ld quality = %ld\n",
-						frequency, bandwidth,
-						bLocked ? "Y" : "N", bPresent ? "Y" : "N",
-						nStrength, nQuality);
+				(g_log << "# locked " << frequency << ", " << bandwidth
+					<< " signal locked = " << (bLocked ? "Y" : "N")
+					<< " present = " << (bPresent ? "Y" : "N")
+					<< " stength = " << nStrength
+					<< " quality = " << nQuality << "\n").Show();
 				break;
 
 			default:
-				printf("# no lock %ld, %ld signal  locked = %s present = %s strength = %ld quality = %ld\n",
-						frequency, bandwidth,
-						bLocked ? "Y" : "N", bPresent ? "Y" : "N",
-						nStrength, nQuality);
+				(g_log << "# no lock " << frequency << ", " << bandwidth
+					<< " signal locked = " << (bLocked ? "Y" : "N")
+					<< " present = " << (bPresent ? "Y" : "N")
+					<< " stength = " << nStrength
+					<< " quality = " << nQuality << "\n").Show();
 				break;
 		}
 
@@ -382,27 +386,39 @@ HRESULT BDAChannelScan::SignalStatistics(long frequency, long bandwidth)
 	return hr;
 }
 
+
+void BDAChannelScan::ToggleVerbose()
+{
+	m_bVerbose = !m_bVerbose;
+	if (m_bVerbose)
+	{
+		m_consoleVerboseHandle = m_mpeg2parser.VerboseOutput()->AddCallback(&m_console);
+	}
+	else
+	{
+		m_mpeg2parser.VerboseOutput()->RemoveCallback(m_consoleVerboseHandle);
+	}
+}
+
 HRESULT	BDAChannelScan::CreateGraph()
 {
 	HRESULT hr = S_OK;
 
 	if(FAILED(hr = m_piGraphBuilder.CoCreateInstance(CLSID_FilterGraph)))
 	{
-		cout << "Failed to create an instance of the graph builder" << endl;
-		return 1;
+		return (g_log << "Failed to create an instance of the graph builder\n").Show(hr);
 	}
 	if(FAILED(hr = m_piGraphBuilder->QueryInterface(IID_IMediaControl, reinterpret_cast<void **>(&m_piMediaControl))))
 	{
-		cout << "Failed to get Media Control interface" << endl;
-		return 1;
+		return (g_log << "Failed to get Media Control interface\n").Show(hr);
 	}
 
 	if(FAILED(hr = AddToRot(m_piGraphBuilder, &m_rotEntry)))
 	{
-		cout << "Failed adding to ROT" << endl;
+		return (g_log << "Failed adding to ROT\n").Show(hr);
 	}
 	
-	return hr;
+	return S_OK;
 }
 
 
@@ -416,74 +432,61 @@ HRESULT	BDAChannelScan::BuildGraph()
 	LONG bandwidth = 0;
 
 	// Initialise the tune request
-	if (FAILED(hr = this->InitialiseTuningSpace()))
+	if (FAILED(hr = InitDVBTTuningSpace(m_pTuningSpace)))
 	{
-		cout << "Failed to initialise the Tune Request" << endl;
-		return E_FAIL;
+		return (g_log << "Failed to initialise the Tune Request\n").Show(hr);
 	}
 
 	// Get the current Network Type clsid
     if (FAILED(hr = m_pTuningSpace->get_NetworkType(&bstrNetworkType)))
 	{
-        cout << "Failed to get TuningSpace Network Type" << endl;
-        return hr;
+		return (g_log << "Failed to get TuningSpace Network Type\n").Show(hr);
     }
 
 	if (FAILED(hr = CLSIDFromString(bstrNetworkType, &CLSIDNetworkType)))
 	{
-		cout << "Couldn't get CLSIDFromString" << endl;
-		return hr;
+		return (g_log << "Couldn't get CLSIDFromString\n").Show(hr);
 	}
 
     // create the network provider based on the clsid obtained from the tuning space
 	if (FAILED(hr = AddFilter(m_piGraphBuilder, CLSIDNetworkType, m_pBDANetworkProvider.p, L"Network Provider")))
 	{
-		cout << "Failed to add Network Provider to the graph" << endl;
-		return E_FAIL;
+		return (g_log << "Failed to add Network Provider to the graph\n").Show(hr);
 	}
 
 	//Create TuneRequest
 	CComPtr <ITuneRequest> pTuneRequest;
-	if (FAILED(hr = this->newRequest(frequency, bandwidth, pTuneRequest.p)))
+	if (FAILED(hr = SubmitDVBTTuneRequest(m_pTuningSpace, pTuneRequest, frequency, bandwidth)))
 	{
-		cout << "Failed to create the Tune Request." << endl;
-		return E_FAIL;
+		return (g_log << "Failed to create the Tune Request.\n").Show(hr);
 	}
 
 	//Apply TuneRequest
-	if(SUCCEEDED(hr = m_pBDANetworkProvider->QueryInterface(__uuidof(IScanningTuner), reinterpret_cast<void **>(&m_piTuner))))
+	if (FAILED(hr = m_pBDANetworkProvider->QueryInterface(__uuidof(IScanningTuner), reinterpret_cast<void **>(&m_piTuner))))
 	{
-		if(FAILED(m_piTuner->put_TuningSpace(m_pTuningSpace)))
-		{
-			cout << "Failed to give tuning space to tuner." << endl;
-			return E_FAIL;
-		}
-		if (FAILED(hr = m_piTuner->put_TuneRequest(pTuneRequest)))
-		{
-			cout << "Failed to submit the Tune Tequest to the Network Provider" << endl;
-			return E_FAIL;
-		}
+		return (g_log << "Failed while interfacing Tuner with Network Provider\n").Show(hr);
 	}
-	else
+	if (FAILED(m_piTuner->put_TuningSpace(m_pTuningSpace)))
 	{
-		cout << "Failed while interfacing Tuner with Network Provider" << endl;
-		return E_FAIL;
+		return (g_log << "Failed to give tuning space to tuner.\n").Show(hr);
+	}
+	if (FAILED(hr = m_piTuner->put_TuneRequest(pTuneRequest)))
+	{
+		return (g_log << "Failed to submit the Tune Tequest to the Network Provider\n").Show(hr);
 	}
 
 	//We can now add the rest of the source filters
 	
 	if (FAILED(hr = AddFilterByDevicePath(m_piGraphBuilder, m_pBDATuner.p, m_pBDACard->tunerDevice.strDevicePath, m_pBDACard->tunerDevice.strFriendlyName)))
 	{
-		cout << "Cannot load Tuner Device" << endl;
-		return E_FAIL;
+		return (g_log << "Cannot load Tuner Device\n").Show(hr);
 	}
 
 	if (m_pBDACard->demodDevice.bValid)
 	{
 		if (FAILED(hr = AddFilterByDevicePath(m_piGraphBuilder, m_pBDADemod.p, m_pBDACard->demodDevice.strDevicePath, m_pBDACard->demodDevice.strFriendlyName)))
 		{
-			cout << "Cannot load Demod Device" << endl;
-			return E_FAIL;
+			return (g_log << "Cannot load Demod Device\n").Show(hr);
 		}
 	}
 
@@ -491,30 +494,26 @@ HRESULT	BDAChannelScan::BuildGraph()
 	{
 		if (FAILED(hr = AddFilterByDevicePath(m_piGraphBuilder, m_pBDACapture.p, m_pBDACard->captureDevice.strDevicePath, m_pBDACard->captureDevice.strFriendlyName)))
 		{
-			cout << "Cannot load Capture Device" << endl;
-			return E_FAIL;
+			return (g_log << "Cannot load Capture Device\n").Show(hr);
 		}
 	}
 
 	if (FAILED(hr = AddFilter(m_piGraphBuilder, CLSID_MPEG2Demultiplexer, m_pBDAMpeg2Demux.p, L"BDA MPEG-2 Demultiplexer")))
 	{
-		cout << "Failed to add BDA MPEG-2 Demultiplexer to the graph" << endl;
-		return E_FAIL;
+		return (g_log << "Failed to add BDA MPEG-2 Demultiplexer to the graph\n").Show(hr);
 	}
 
 	if (FAILED(hr = AddFilterByName(m_piGraphBuilder, m_pBDATIF.p, KSCATEGORY_BDA_TRANSPORT_INFORMATION, L"BDA MPEG2 Transport Information Filter")))
 	{
-		cout << "Cannot load TIF" << endl;
-		return E_FAIL;
+		return (g_log << "Cannot load TIF\n").Show(hr);
 	}
 
 	if (FAILED(hr = AddFilterByName(m_piGraphBuilder, m_pBDASecTab.p, KSCATEGORY_BDA_TRANSPORT_INFORMATION, L"MPEG-2 Sections and Tables")))
 	{
-		cout << "Cannot load MPEG-2 Sections and Tables" << endl;
-		return E_FAIL;
+		return (g_log << "Cannot load MPEG-2 Sections and Tables\n").Show(hr);
 	}
 
-	return hr;
+	return S_OK;
 }
 
 
@@ -524,8 +523,7 @@ HRESULT	BDAChannelScan::ConnectGraph()
 
     if (FAILED(hr = ConnectFilters(m_piGraphBuilder, m_pBDANetworkProvider, m_pBDATuner)))
 	{
-		cout << "Failed to connect Network Provider to Tuner Filter" << endl;
-		return E_FAIL;
+		return (g_log << "Failed to connect Network Provider to Tuner Filter\n").Show(hr);
 	}
 
 	CComPtr <IPin> pCapturePin;
@@ -536,14 +534,12 @@ HRESULT	BDAChannelScan::ConnectGraph()
 		{
 			if (FAILED(hr = ConnectFilters(m_piGraphBuilder, m_pBDATuner, m_pBDADemod)))
 			{
-				cout << "Failed to connect Tuner Filter to Demod Filter" << endl;
-				return E_FAIL;
+				return (g_log << "Failed to connect Tuner Filter to Demod Filter\n").Show(hr);
 			}
 
 			if (FAILED(hr = ConnectFilters(m_piGraphBuilder, m_pBDADemod, m_pBDACapture)))
 			{
-				cout << "Failed to connect Demod Filter to Capture Filter" << endl;
-				return E_FAIL;
+				return (g_log << "Failed to connect Demod Filter to Capture Filter\n").Show(hr);
 			}
 
 		}
@@ -551,8 +547,7 @@ HRESULT	BDAChannelScan::ConnectGraph()
 		{
 			if (FAILED(hr = ConnectFilters(m_piGraphBuilder, m_pBDATuner, m_pBDACapture)))
 			{
-				cout << "Failed to connect Tuner Filter to Capture Filter" << endl;
-				return E_FAIL;
+				return (g_log << "Failed to connect Tuner Filter to Capture Filter\n").Show(hr);
 			}
 		}
 		
@@ -561,8 +556,7 @@ HRESULT	BDAChannelScan::ConnectGraph()
 			//If that failed then try the other mpeg2 type, but this shouldn't happen.
 			if (FAILED(hr = FindPinByMediaType(m_pBDACapture, MEDIATYPE_Stream, MEDIASUBTYPE_MPEG2_TRANSPORT, &pCapturePin.p, REQUESTED_PINDIR_OUTPUT)))
 			{
-				cout << "Failed to find Tranport Stream pin on Capture filter" << endl;
-				return E_FAIL;
+				return (g_log << "Failed to find Tranport Stream pin on Capture filter\n").Show(hr);
 			}
 		}
 	}
@@ -570,8 +564,7 @@ HRESULT	BDAChannelScan::ConnectGraph()
 	{
 		if (FAILED(hr = ConnectFilters(m_piGraphBuilder, m_pBDATuner, m_pBDADemod)))
 		{
-			cout << "Failed to connect Tuner Filter to Demod Filter" << endl;
-			return E_FAIL;
+			return (g_log << "Failed to connect Tuner Filter to Demod Filter\n").Show(hr);
 		}
 
 		if (FAILED(hr = FindPinByMediaType(m_pBDADemod, MEDIATYPE_Stream, KSDATAFORMAT_SUBTYPE_BDA_MPEG2_TRANSPORT, &pCapturePin.p, REQUESTED_PINDIR_OUTPUT)))
@@ -579,8 +572,7 @@ HRESULT	BDAChannelScan::ConnectGraph()
 			//If that failed then try the other mpeg2 type, but this shouldn't happen.
 			if (FAILED(hr = FindPinByMediaType(m_pBDADemod, MEDIATYPE_Stream, MEDIASUBTYPE_MPEG2_TRANSPORT, &pCapturePin.p, REQUESTED_PINDIR_OUTPUT)))
 			{
-				cout << "Failed to find Tranport Stream pin on Capture filter" << endl;
-				return E_FAIL;
+				return (g_log << "Failed to find Tranport Stream pin on Capture filter\n").Show(hr);
 			}
 		}
 	}
@@ -591,8 +583,7 @@ HRESULT	BDAChannelScan::ConnectGraph()
 			//If that failed then try the other mpeg2 type, but this shouldn't happen.
 			if (FAILED(hr = FindPinByMediaType(m_pBDATuner, MEDIATYPE_Stream, MEDIASUBTYPE_MPEG2_TRANSPORT, &pCapturePin.p, REQUESTED_PINDIR_OUTPUT)))
 			{
-				cout << "Failed to find Tranport Stream pin on Capture filter" << endl;
-				return E_FAIL;
+				return (g_log << "Failed to find Tranport Stream pin on Capture filter\n").Show(hr);
 			}
 		}
 	}
@@ -600,32 +591,22 @@ HRESULT	BDAChannelScan::ConnectGraph()
 	CComPtr <IPin> pDemuxPin;
 	if (FAILED(hr = FindPin(m_pBDAMpeg2Demux, L"MPEG-2 Stream", &pDemuxPin.p, REQUESTED_PINDIR_INPUT)))
 	{
-		cout << "Failed to get input pin on Demux" << endl;
-		return E_FAIL;
+		return (g_log << "Failed to get input pin on Demux\n").Show(hr);
 	}
 	
 	if (FAILED(hr = m_piGraphBuilder->ConnectDirect(pCapturePin, pDemuxPin, NULL)))
 	{
-		cout << "Failed to connect Capture filter to BDA Demux" << endl;
-		return E_FAIL;
+		return (g_log << "Failed to connect Capture filter to BDA Demux\n").Show(hr);
 	}
-
-/*	if (FAILED(hr = ConnectFilters(m_piGraphBuilder, m_pBDACapture, m_pBDAMpeg2Demux)))
-	{
-		cout << "Failed to connect Infinite Pin Tee Filter to BDA Demux" << endl;
-		return E_FAIL;
-	}*/
 
 	if (FAILED(hr = ConnectFilters(m_piGraphBuilder, m_pBDAMpeg2Demux, m_pBDATIF)))
 	{
-		cout << "Failed to connect to BDA Demux to TIF" << endl;
-		return E_FAIL;
+		return (g_log << "Failed to connect to BDA Demux to TIF\n").Show(hr);
 	}
 
 	if (FAILED(hr = ConnectFilters(m_piGraphBuilder, m_pBDAMpeg2Demux, m_pBDASecTab)))
 	{
-		cout << "Failed to connect BDA Demux to MPEG-2 Sections and Tables" << endl;
-		return E_FAIL;
+		return (g_log << "Failed to connect BDA Demux to MPEG-2 Sections and Tables\n").Show(hr);
 	}
 
 	return hr;
@@ -636,18 +617,16 @@ HRESULT	BDAChannelScan::LockChannel(long lFrequency, long lBandwidth, BOOL &lock
 	HRESULT hr = S_OK;
 	CComPtr <ITuneRequest> piTuneRequest;
 
-	if (SUCCEEDED(hr = this->newRequest(lFrequency, lBandwidth, piTuneRequest.p)))
+	if (SUCCEEDED(hr = SubmitDVBTTuneRequest(m_pTuningSpace, piTuneRequest, lFrequency, lBandwidth)))
 	{
 		CComQIPtr <ITuner> pTuner(m_pBDANetworkProvider);
 		if (!pTuner)
 		{
-			cout << "Failed while interfacing Tuner with Network Provider" << endl;
-			return E_FAIL;
+			return (g_log << "Failed while interfacing Tuner with Network Provider\n").Show(E_FAIL);
 		}
 		if (FAILED(hr = pTuner->put_TuneRequest(piTuneRequest)))
 		{
-			cout << "Failed to submit the Tune Tequest to the Network Provider" << endl;
-			return S_FALSE;
+			return (g_log << "Failed to submit the Tune Tequest to the Network Provider\n").Show(hr);
 		}
 
 		pTuner.Release();
@@ -660,8 +639,7 @@ HRESULT	BDAChannelScan::LockChannel(long lFrequency, long lBandwidth, BOOL &lock
 		CComPtr <IBDA_Topology> bdaNetTop;
 		if (FAILED(hr = m_pBDATuner.QueryInterface(&bdaNetTop)))
 		{
-			cout << "Cannot Find IID_IBDA_Topology" << endl;
-			return E_FAIL;
+			return (g_log << "Cannot Find IID_IBDA_Topology\n").Show(hr);
 		}
 
 		ULONG NodeTypes;
@@ -677,8 +655,7 @@ HRESULT	BDAChannelScan::LockChannel(long lFrequency, long lBandwidth, BOOL &lock
 
 		if (FAILED(hr = bdaNetTop->GetNodeTypes(&NodeTypes, 32, NodeType)))
 		{
-			cout << "Cannot get node types" << endl;
-			return E_FAIL;
+			return (g_log << "Cannot get node types\n").Show(hr);
 		}
 
 		for ( int i=0 ; i<NodeTypes ; i++ )
@@ -726,7 +703,7 @@ HRESULT	BDAChannelScan::LockChannel(long lFrequency, long lBandwidth, BOOL &lock
 		{
 			return S_OK;
 		}
-		return S_FALSE;
+		return E_FAIL;
 	}
 
 	return hr;
@@ -736,156 +713,28 @@ HRESULT BDAChannelScan::createConnectionPoint()
 {
 	HRESULT hr;
 
-	if(FAILED(hr = m_pBDATIF->QueryInterface(__uuidof(IGuideData), reinterpret_cast<void **>(&m_piGuideData))))
+	if (FAILED(hr = m_pBDATIF->QueryInterface(__uuidof(IGuideData), reinterpret_cast<void **>(&m_piGuideData))))
 	{
-		cout << "Failed to interface GuideData with TIF" << endl;
-		return E_FAIL;
+		return (g_log << "Failed to interface GuideData with TIF\n").Show(hr);
 	}
 
 	CComPtr <IConnectionPointContainer> piContainer;
-	if(SUCCEEDED(hr = m_pBDATIF->QueryInterface(__uuidof(IConnectionPointContainer), reinterpret_cast<void **>(&piContainer))))
+	if (FAILED(hr = m_pBDATIF->QueryInterface(__uuidof(IConnectionPointContainer), reinterpret_cast<void **>(&piContainer))))
 	{
-		if(SUCCEEDED(hr = piContainer->FindConnectionPoint(__uuidof(IGuideDataEvent), &m_piConnectionPoint)))
-		{
-			hr = m_piConnectionPoint->Advise(this, &m_dwAdviseCookie);
-			piContainer.Release();
-		}
+		return (g_log << "Failed to interface ConnectionPoint with TIF\n").Show(hr);
 	}
-	else
+	if (FAILED(hr = piContainer->FindConnectionPoint(__uuidof(IGuideDataEvent), &m_piConnectionPoint)))
 	{
-		cout << "Failed to interface ConnectionPoint with TIF" << endl;
-		return E_FAIL;
+		return (g_log << "Failed to find connection point on TIF\n").Show(hr);
 	}
+
+	if (FAILED(hr = m_piConnectionPoint->Advise(this, &m_dwAdviseCookie)))
+	{
+		m_piConnectionPoint.Release();
+		return (g_log << "Failed to Advice connection point of TIF\n").Show(hr);
+	}
+	
 	return S_OK;
-}
-
-HRESULT BDAChannelScan::newRequest(LONG lFrequency, LONG lBandwidth, ITuneRequest* &pExTuneRequest)
-{
-	HRESULT hr = S_OK;
-
-	if (m_pTuningSpace == NULL)
-	{
-        cout << "Tuning Space is NULL" << endl;
-        return E_FAIL;
-	}
-
-	//Get an interface to the TuningSpace
-	CComQIPtr <IDVBTuningSpace2> piDVBTuningSpace(m_pTuningSpace);
-    if (!piDVBTuningSpace)
-	{
-        cout << "Can't Query Interface for an IDVBTuningSpace2" << endl;
-        return E_FAIL;
-    }
-
-	//Get new TuneRequest from tuning space
-	//CComPtr <ITuneRequest> pTuneRequest;
-	hr = piDVBTuningSpace->CreateTuneRequest(&pExTuneRequest);
-	piDVBTuningSpace.Release();
-	if (FAILED(hr))
-	{
-		cout << "Failed to create Tune Request" << endl;
-		return E_FAIL;
-	}
-
-	//Get interface to the TuneRequest
-	CComQIPtr <IDVBTuneRequest> piDVBTuneRequest(pExTuneRequest);
-	if (!piDVBTuneRequest)
-	{
-		pExTuneRequest->Release();
-		cout << "Can't Query Interface for an IDVBTuneRequest." << endl;
-		return E_FAIL;
-	}
-
-	//
-	// Start
-	//
-	CComPtr <IDVBTLocator> pDVBTLocator;
-	hr = pDVBTLocator.CoCreateInstance(CLSID_DVBTLocator);
-	switch (hr)
-	{ 
-	case REGDB_E_CLASSNOTREG:
-		pExTuneRequest->Release();
-		piDVBTuneRequest.Release();
-		cout << "The DVBTLocator class isn't registered in the registration database." << endl;
-		return E_FAIL;
-	case CLASS_E_NOAGGREGATION:
-		pExTuneRequest->Release();
-		piDVBTuneRequest.Release();
-		cout << "The DVBTLocator class can't be created as part of an aggregate." << endl;
-		return E_FAIL;
-	}
-
-	if (FAILED(hr = pDVBTLocator->put_CarrierFrequency(lFrequency)))
-	{
-		pDVBTLocator.Release();
-		pExTuneRequest->Release();
-		piDVBTuneRequest.Release();
-		cout << "Can't set Frequency on Locator." << endl;
-		return E_FAIL;
-	}
-	if(FAILED(hr = pDVBTLocator->put_SymbolRate(lBandwidth)))
-	{
-		pDVBTLocator.Release();
-		pExTuneRequest->Release();
-		piDVBTuneRequest.Release();
-		cout << "Can't set Bandwidth on Locator." << endl;
-		return E_FAIL;
-	}
-	//
-	//End
-	//
-
-	piDVBTuneRequest->put_ONID(-1);
-	piDVBTuneRequest->put_TSID(-1);
-	piDVBTuneRequest->put_SID(-1);
-
-	// Bind the locator to the tune request.
-
-	if(FAILED(hr = piDVBTuneRequest->put_Locator(pDVBTLocator)))
-	{
-		pDVBTLocator.Release();
-		pExTuneRequest->Release();
-		piDVBTuneRequest.Release();
-		cout << "Cannot put the locator on DVB Tune Request" << endl;
-		return E_FAIL;
-	}
-
-	//hr = pTuneRequest.QueryInterface(pExTuneRequest);
-
-	pDVBTLocator.Release();
-	piDVBTuneRequest.Release();
-
-	return hr;
-}
-
-HRESULT BDAChannelScan::InitialiseTuningSpace()
-{
-
-	HRESULT hr = S_OK;
-
-	m_pTuningSpace.CoCreateInstance(CLSID_DVBTuningSpace);
-	CComQIPtr <IDVBTuningSpace2> piDVBTuningSpace(m_pTuningSpace);
-	if (!piDVBTuningSpace)
-	{
-		m_pTuningSpace.Release();
-		return E_FAIL;
-	}
-	if (FAILED(hr = piDVBTuningSpace->put_SystemType(DVB_Terrestrial)))
-	{
-		piDVBTuningSpace.Release();
-		m_pTuningSpace.Release();
-		return E_FAIL;
-	}
-	CComBSTR bstrNetworkType = "{216C62DF-6D7F-4E9A-8571-05F14EDB766A}";
-	if (FAILED(hr = piDVBTuningSpace->put_NetworkType(bstrNetworkType)))
-	{
-		piDVBTuningSpace.Release();
-		m_pTuningSpace.Release();
-		return E_FAIL;
-	}
-	piDVBTuningSpace.Release();
-
-	return hr;
 }
 
 STDMETHODIMP_(ULONG) BDAChannelScan::AddRef(void)
@@ -990,7 +839,7 @@ HRESULT BDAChannelScan::scanChannel(long channelNumber, long frequency, long ban
 	m_mpeg2parser.Reset();
 	m_mpeg2parser.SetFilter(m_pBDASecTab);
 	m_mpeg2parser.SetNetworkNumber(channelNumber);
-	m_mpeg2parser.SetVerbose(m_bVerbose);
+	
 	m_bScanning = TRUE;
 
 	BOOL bLocked = FALSE;
@@ -1003,10 +852,12 @@ HRESULT BDAChannelScan::scanChannel(long channelNumber, long frequency, long ban
 	switch (hr)
 	{
 		case S_OK:
-			printf("# locked %ld, %ld signal locked = %s present = %s strength = %ld quality = %ld\n",
-					frequency, bandwidth,
-					bLocked ? "Y" : "N", bPresent ? "Y" : "N",
-					nStrength, nQuality);
+			(g_log << "# locked " << frequency << ", " << bandwidth
+				<< " signal locked = " << (bLocked ? "Y" : "N")
+				<< " present = " << (bPresent ? "Y" : "N")
+				<< " stength = " << nStrength
+				<< " quality = " << nQuality << "\n").Show();
+
 			switch (m_mpeg2parser.WaitForScanToFinish())
 			{
 			case WAIT_OBJECT_0:
@@ -1028,32 +879,6 @@ HRESULT BDAChannelScan::scanChannel(long channelNumber, long frequency, long ban
 	m_mpeg2parser.ReleaseFilter();
 
 	m_bScanning = FALSE;
-	return hr;
-}
-
-HRESULT BDAChannelScan::scanChannels()
-{
-	HRESULT hr = S_OK;
-
-	if(!m_piTuner)
-	{
-		cout << "Tuner is NULL" << endl;
-		return E_FAIL;
-	}
-
-	//if(FAILED(hr = m_piTuner->AutoProgram())) {
-	//	cout << "AutoProgram failed." << endl;
-	//	return E_FAIL;
-	//}
-
-	while(SUCCEEDED(hr))
-	{
-		ResetEvent(m_hGuideDataChangedEvent);
-		hr = m_piTuner->SeekDown();
-		//if (SUCCEEDED(hr))
-			//getServiceProperties();
-	}
-
 	return hr;
 }
 

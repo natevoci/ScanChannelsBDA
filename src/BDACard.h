@@ -20,34 +20,25 @@
  *	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef BDACARDCOLLECTION_H
-#define BDACARDCOLLECTION_H
+#ifndef BDACARD_H
+#define BDACARD_H
 
 #include "StdAfx.h"
-#include "BDACard.h"
-//#include "SystemDeviceEnumerator.h"
-#include <vector>
-//#include <bdatif.h>
+#include "SystemDeviceEnumerator.h"
 
-class BDACardCollection  
+class BDACard
 {
 public:
-	BDACardCollection();
-	virtual ~BDACardCollection();
+	BDACard();
+	virtual ~BDACard();
 
-	BOOL LoadCards();
-	BOOL LoadCards(LPWSTR filename);
-	BOOL SaveCards(LPWSTR filename = NULL);
+	DirectShowSystemDevice tunerDevice;
+	DirectShowSystemDevice demodDevice;
+	DirectShowSystemDevice captureDevice;
 
-	std::vector<BDACard *> cards;
-
-private:
-	BOOL LoadCardsFromHardware();
-	BOOL LoadCardsFromFile();
-	void AddCardToList(BDACard* currCard);
-	BOOL FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, DirectShowSystemDevice** ppDemodDevice, DirectShowSystemDevice** ppCaptureDevice);
-
-	LPWSTR m_filename;
+	BOOL bActive;
+	BOOL bNew;
+	BOOL bDetected;
 };
 
 #endif

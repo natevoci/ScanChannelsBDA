@@ -52,10 +52,14 @@ BOOL isWhitespace(wchar_t character);
 void skipWhitespaces(LPWSTR &str);
 LPWSTR findEndOfTokenName(LPCWSTR str);
 
-void strCopy(LPSTR &dest, LPCSTR src, long length = -1);
-void strCopy(LPWSTR &dest, LPCWSTR src, long length = -1);
-void strCopyA2W(LPWSTR &dest, LPCSTR src, long length = -1);
-void strCopyW2A(LPSTR &dest, LPCWSTR src, long length = -1);
+void strCopy(LPSTR &dest, LPCSTR src, long length);
+void strCopy(LPWSTR &dest, LPCWSTR src, long length);
+void strCopyA2W(LPWSTR &dest, LPCSTR src, long length);
+void strCopyW2A(LPSTR &dest, LPCWSTR src, long length);
 
+void strCopy(LPSTR &dest, LPCSTR src);
+void strCopy(LPWSTR &dest, LPCWSTR src);
+void strCopyA2W(LPWSTR &dest, LPCSTR src);
+void strCopyW2A(LPSTR &dest, LPCWSTR src);
 
 #endif

@@ -41,9 +41,6 @@ typedef enum _RequestedPinDirection
 	REQUESTED_PINDIR_ANY      = PINDIR_OUTPUT + 1
 } REQUESTED_PIN_DIRECTION;
 
-
-BOOL ErrorMessageBox(LPCTSTR message);
-
 HRESULT AddFilter(IGraphBuilder* piGraphBuilder, REFCLSID rclsid, IBaseFilter* &pFilter, LPCWSTR pName, BOOL bSilent = FALSE);
 HRESULT AddFilterByName(IGraphBuilder* piGraphBuilder, IBaseFilter* &pFilter, CLSID clsidDeviceClass, LPCWSTR friendlyName);
 HRESULT AddFilterByDevicePath(IGraphBuilder* piGraphBuilder, IBaseFilter* &pFilter, LPCWSTR pDevicePath, LPCWSTR pName);
