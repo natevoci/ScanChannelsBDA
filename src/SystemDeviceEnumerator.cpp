@@ -30,6 +30,7 @@ DirectShowSystemDevice::DirectShowSystemDevice()
 {
 	strFriendlyName = NULL;
 	strDevicePath = NULL;
+	bValid = FALSE;
 }
 
 DirectShowSystemDevice::~DirectShowSystemDevice()
@@ -46,6 +47,7 @@ const DirectShowSystemDevice &DirectShowSystemDevice::operator=(const DirectShow
 	{
 		strCopy(strFriendlyName, right.strFriendlyName);
 		strCopy(strDevicePath, right.strDevicePath);
+		bValid = right.bValid;
 	}
 	return *this;
 }
@@ -179,6 +181,8 @@ HRESULT DirectShowSystemDeviceEnumerator::Next(DirectShowSystemDevice** ppDevice
 		//(g_log << "Could not get device path").Write();
 		return hr;
 	}
+
+	(*ppDevice)->bValid = TRUE;
 
 	return S_OK;
 }

@@ -42,7 +42,6 @@ BDACard::BDACard()
 	bActive = FALSE;
 	bNew = FALSE;
 	bDetected = FALSE;
-	bUsesDemod = FALSE;
 }
 
 BDACard::~BDACard()
@@ -295,28 +294,20 @@ BOOL BDACardCollection::LoadCardsFromHardware()
 		}
 		else
 		{
-			//(g_log << "  " << pTunerDevice->strFriendlyName << " - " << pTunerDevice->strDevicePath).Write();
-
 			DirectShowSystemDevice* pDemodDevice;
-
 			DirectShowSystemDevice* pCaptureDevice;
+
 			if (FindCaptureDevice(pTunerDevice, &pDemodDevice, &pCaptureDevice))
 			{
-				//(g_log << "    " << pCaptureDevice->strFriendlyName << " - " << pCaptureDevice->strDevicePath).Write();
-
 				bdaCard = new BDACard();
 				bdaCard->tunerDevice = *pTunerDevice;
+
 				if (pDemodDevice)
-				{
 					bdaCard->demodDevice = *pDemodDevice;
-					bdaCard->bUsesDemod = TRUE;
-				}
-				bdaCard->captureDevice = *pCaptureDevice;
+				if (pCaptureDevice)
+					bdaCard->captureDevice = *pCaptureDevice;
+
 				cards.push_back(bdaCard);
-			}
-			else
-			{
-				//(g_log << "    Cannot find a capture filter that will connect to this tuner").Write();
 			}
 		}
 

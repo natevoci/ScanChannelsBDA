@@ -372,7 +372,7 @@ HRESULT	BDAChannelScan::BuildGraph()
 		return FALSE;
 	}
 
-	if (m_pBDACard->bUsesDemod)
+	if (m_pBDACard->demodDevice.bValid)
 	{
 		if (FAILED(hr = AddFilterByDevicePath(m_piGraphBuilder, m_pBDADemod.p, m_pBDACard->demodDevice.strDevicePath, m_pBDACard->demodDevice.strFriendlyName)))
 		{
@@ -381,10 +381,13 @@ HRESULT	BDAChannelScan::BuildGraph()
 		}
 	}
 
-	if (FAILED(hr = AddFilterByDevicePath(m_piGraphBuilder, m_pBDACapture.p, m_pBDACard->captureDevice.strDevicePath, m_pBDACard->captureDevice.strFriendlyName)))
+	if (m_pBDACard->captureDevice.bValid)
 	{
-		cout << "Cannot load Capture Device" << endl;
-		return FALSE;
+		if (FAILED(hr = AddFilterByDevicePath(m_piGraphBuilder, m_pBDACapture.p, m_pBDACard->captureDevice.strDevicePath, m_pBDACard->captureDevice.strFriendlyName)))
+		{
+			cout << "Cannot load Capture Device" << endl;
+			return FALSE;
+		}
 	}
 
 	if (FAILED(hr = AddFilter(m_piGraphBuilder, CLSID_MPEG2Demultiplexer, m_pBDAMpeg2Demux.p, L"BDA MPEG-2 Demultiplexer")))
@@ -412,7 +415,45 @@ HRESULT	BDAChannelScan::BuildGraph()
 		return E_FAIL;
 	}
 
-	if (m_pBDACard->bUsesDemod)
+	CComPtr <IPin> pCapturePin;
+
+	if (m_pBDACard->captureDevice.bValid)
+	{
+		if (m_pBDACard->demodDevice.bValid)
+		{
+			if (FAILED(hr = ConnectFilters(m_piGraphBuilder, m_pBDATuner, m_pBDADemod)))
+			{
+				cout << "Failed to connect Tuner Filter to Demod Filter" << endl;
+				return E_FAIL;
+			}
+
+			if (FAILED(hr = ConnectFilters(m_piGraphBuilder, m_pBDADemod, m_pBDACapture)))
+			{
+				cout << "Failed to connect Demod Filter to Capture Filter" << endl;
+				return E_FAIL;
+			}
+
+		}
+		else
+		{
+			if (FAILED(hr = ConnectFilters(m_piGraphBuilder, m_pBDATuner, m_pBDACapture)))
+			{
+				cout << "Failed to connect Tuner Filter to Capture Filter" << endl;
+				return E_FAIL;
+			}
+		}
+		
+		if (FAILED(hr = FindPinByMediaType(m_pBDACapture, MEDIATYPE_Stream, KSDATAFORMAT_SUBTYPE_BDA_MPEG2_TRANSPORT, &pCapturePin.p, REQUESTED_PINDIR_OUTPUT)))
+		{
+			//If that failed then try the other mpeg2 type, but this shouldn't happen.
+			if (FAILED(hr = FindPinByMediaType(m_pBDACapture, MEDIATYPE_Stream, MEDIASUBTYPE_MPEG2_TRANSPORT, &pCapturePin.p, REQUESTED_PINDIR_OUTPUT)))
+			{
+				cout << "Failed to find Tranport Stream pin on Capture filter" << endl;
+				return E_FAIL;
+			}
+		}
+	}
+	else if (m_pBDACard->demodDevice.bValid)
 	{
 		if (FAILED(hr = ConnectFilters(m_piGraphBuilder, m_pBDATuner, m_pBDADemod)))
 		{
@@ -420,29 +461,26 @@ HRESULT	BDAChannelScan::BuildGraph()
 			return E_FAIL;
 		}
 
-		if (FAILED(hr = ConnectFilters(m_piGraphBuilder, m_pBDADemod, m_pBDACapture)))
+		if (FAILED(hr = FindPinByMediaType(m_pBDADemod, MEDIATYPE_Stream, KSDATAFORMAT_SUBTYPE_BDA_MPEG2_TRANSPORT, &pCapturePin.p, REQUESTED_PINDIR_OUTPUT)))
 		{
-			cout << "Failed to connect Demod Filter to Capture Filter" << endl;
-			return E_FAIL;
+			//If that failed then try the other mpeg2 type, but this shouldn't happen.
+			if (FAILED(hr = FindPinByMediaType(m_pBDADemod, MEDIATYPE_Stream, MEDIASUBTYPE_MPEG2_TRANSPORT, &pCapturePin.p, REQUESTED_PINDIR_OUTPUT)))
+			{
+				cout << "Failed to find Tranport Stream pin on Capture filter" << endl;
+				return E_FAIL;
+			}
 		}
 	}
 	else
 	{
-		if (FAILED(hr = ConnectFilters(m_piGraphBuilder, m_pBDATuner, m_pBDACapture)))
+		if (FAILED(hr = FindPinByMediaType(m_pBDATuner, MEDIATYPE_Stream, KSDATAFORMAT_SUBTYPE_BDA_MPEG2_TRANSPORT, &pCapturePin.p, REQUESTED_PINDIR_OUTPUT)))
 		{
-			cout << "Failed to connect Tuner Filter to Capture Filter" << endl;
-			return E_FAIL;
-		}
-	}
-
-	CComPtr <IPin> pCapturePin;
-	if (FAILED(hr = FindPinByMediaType(m_pBDACapture, MEDIATYPE_Stream, KSDATAFORMAT_SUBTYPE_BDA_MPEG2_TRANSPORT, &pCapturePin.p, REQUESTED_PINDIR_OUTPUT)))
-	{
-		//If that failed then try the other mpeg2 type, but this shouldn't happen.
-		if (FAILED(hr = FindPinByMediaType(m_pBDACapture, MEDIATYPE_Stream, MEDIASUBTYPE_MPEG2_TRANSPORT, &pCapturePin.p, REQUESTED_PINDIR_OUTPUT)))
-		{
-			cout << "Failed to find Tranport Stream pin on Capture filter" << endl;
-			return E_FAIL;
+			//If that failed then try the other mpeg2 type, but this shouldn't happen.
+			if (FAILED(hr = FindPinByMediaType(m_pBDATuner, MEDIATYPE_Stream, MEDIASUBTYPE_MPEG2_TRANSPORT, &pCapturePin.p, REQUESTED_PINDIR_OUTPUT)))
+			{
+				cout << "Failed to find Tranport Stream pin on Capture filter" << endl;
+				return E_FAIL;
+			}
 		}
 	}
 

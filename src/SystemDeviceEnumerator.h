@@ -38,6 +38,7 @@ public:
 
 	LPWSTR strFriendlyName;
 	LPWSTR strDevicePath;
+	BOOL bValid;
 };
 
 class DirectShowSystemDeviceEnumerator

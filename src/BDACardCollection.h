@@ -41,7 +41,6 @@ public:
 	BOOL bActive;
 	BOOL bNew;
 	BOOL bDetected;
-	BOOL bUsesDemod;
 };
 
 
