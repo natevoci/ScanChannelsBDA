@@ -32,6 +32,7 @@
 
 LogMessage g_log;
 LogMessageConsoleOutput consOut;
+LogMessageWriter lmw;
 
 HRESULT ShowMenu();
 HRESULT GetChannelInfo(long &freq, long &band);
@@ -40,7 +41,6 @@ int	_tmain(int argc, _TCHAR* argv[])
 {
 	HRESULT hr;
 
-	LogMessageWriter lmw;
 	lmw.SetFilename(L"ScanChannelsBDA.log");
 	int writeHandle = g_log.AddCallback(&lmw);
 

@@ -280,8 +280,8 @@ HRESULT BDACard::GetSignalStatistics(BOOL &locked, BOOL &present, long &strength
 
 	ULONG NodeTypes;
 	ULONG NodeType[32];
-	ULONG Interfaces;
-	GUID Interface[32];
+	//ULONG Interfaces;
+	//GUID Interface[32];
 	CComPtr <IUnknown> iNode;
 
 	long longVal;
@@ -296,40 +296,33 @@ HRESULT BDACard::GetSignalStatistics(BOOL &locked, BOOL &present, long &strength
 
 	for ( int i=0 ; i<NodeTypes ; i++ )
 	{
-		hr = bdaNetTop->GetNodeInterfaces(NodeType[i], &Interfaces, 32, Interface);
+		hr = bdaNetTop->GetControlNode(0, 1, NodeType[i], &iNode);
 		if (hr == S_OK)
 		{
-			for ( int j=0 ; j<Interfaces ; j++ )
+			CComPtr <IBDA_SignalStatistics> pSigStats;
+
+			hr = iNode.QueryInterface(&pSigStats);
+			if (hr == S_OK)
 			{
-				if (Interface[j] == IID_IBDA_SignalStatistics)
-				{
-					hr = bdaNetTop->GetControlNode(0, 1, NodeType[i], &iNode);
-					if (hr == S_OK)
-					{
-						CComPtr <IBDA_SignalStatistics> pSigStats;
+				longVal = 0;
+				if (SUCCEEDED(hr = pSigStats->get_SignalStrength(&longVal)))
+					strength = longVal;
 
-						hr = iNode.QueryInterface(&pSigStats);
-						if (hr == S_OK)
-						{
-							if (SUCCEEDED(hr = pSigStats->get_SignalStrength(&longVal)))
-								strength = longVal;
+				longVal = 0;
+				if (SUCCEEDED(hr = pSigStats->get_SignalQuality(&longVal)))
+					quality = longVal;
 
-							if (SUCCEEDED(hr = pSigStats->get_SignalQuality(&longVal)))
-								quality = longVal;
+				byteVal = 0;
+				if (SUCCEEDED(hr = pSigStats->get_SignalLocked(&byteVal)))
+					locked = byteVal;
 
-							if (SUCCEEDED(hr = pSigStats->get_SignalLocked(&byteVal)))
-								locked = byteVal;
+				byteVal = 0;
+				if (SUCCEEDED(hr = pSigStats->get_SignalPresent(&byteVal)))
+					present = byteVal;
 
-							if (SUCCEEDED(hr = pSigStats->get_SignalPresent(&byteVal)))
-								present = byteVal;
-
-							pSigStats.Release();
-						}
-						iNode.Release();
-					}
-					break;
-				}
+				pSigStats.Release();
 			}
+			iNode.Release();
 		}
 	}
 	bdaNetTop.Release();

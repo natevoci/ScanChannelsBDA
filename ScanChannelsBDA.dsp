@@ -137,6 +137,10 @@ SOURCE=.\src\ParseLine.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\ReferenceCountingClass.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\ScanChannelsBDA.cpp
 # End Source File
 # Begin Source File
@@ -150,6 +154,10 @@ SOURCE=.\src\stdafx.cpp
 # Begin Source File
 
 SOURCE=.\src\SystemDeviceEnumerator.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\XMLDocument.cpp
 # End Source File
 # End Group
 # Begin Group "Header Files"
@@ -201,6 +209,10 @@ SOURCE=.\src\ParseLine.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\ReferenceCountingClass.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\ScanChannelsBDA.h
 # End Source File
 # Begin Source File
@@ -210,6 +222,10 @@ SOURCE=.\src\stdafx.h
 # Begin Source File
 
 SOURCE=.\src\SystemDeviceEnumerator.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\src\XMLDocument.h
 # End Source File
 # End Group
 # Begin Group "Resource Files"

@@ -242,7 +242,7 @@ BOOL BDACardCollection::LoadCardsFromHardware()
 
 BOOL BDACardCollection::FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, DirectShowSystemDevice** ppDemodDevice, DirectShowSystemDevice** ppCaptureDevice)
 {
-	HRESULT hr;
+	HRESULT hr = S_OK;
 	CComPtr <IGraphBuilder> piGraphBuilder;
 	CComPtr <IBaseFilter> piBDANetworkProvider;
 	CComPtr <ITuningSpace> piTuningSpace;
@@ -337,7 +337,7 @@ BOOL BDACardCollection::FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, 
 
 		DirectShowSystemDeviceEnumerator enumerator(KSCATEGORY_BDA_RECEIVER_COMPONENT);
 		*ppDemodDevice = NULL;
-		while (hr = enumerator.Next(ppDemodDevice) == S_OK)
+		while (enumerator.Next(ppDemodDevice) == S_OK)
 		{
 			(log << "Trying - " << (*ppDemodDevice)->strFriendlyName << "\n").Write();
 			LogMessageIndent indentB(&log);
@@ -346,6 +346,8 @@ BOOL BDACardCollection::FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, 
 
 			if FAILED(hr = graphTools.AddFilterByDevicePath(piGraphBuilder, &piBDADemod, (*ppDemodDevice)->strDevicePath, (*ppDemodDevice)->strFriendlyName))
 			{
+				delete *ppDemodDevice;
+				*ppDemodDevice = NULL;
 				break;
 			}
 
@@ -360,7 +362,10 @@ BOOL BDACardCollection::FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, 
 			piBDADemod.Release();
 			delete *ppDemodDevice;
 			*ppDemodDevice = NULL;
+			hr = S_FALSE;
 		}
+		if FAILED(hr)
+			break;
 
 		if (bFoundDemod)
 		{
@@ -368,7 +373,7 @@ BOOL BDACardCollection::FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, 
 			LogMessageIndent indentB(&log);
 			*ppCaptureDevice = NULL;
 			enumerator.Reset();
-			while (hr = enumerator.Next(ppCaptureDevice) == S_OK)
+			while (enumerator.Next(ppCaptureDevice) == S_OK)
 			{
 				//Don't try to connect the one we already found
 				if (_wcsicmp((*ppDemodDevice)->strDevicePath, (*ppCaptureDevice)->strDevicePath) == 0)
@@ -385,6 +390,8 @@ BOOL BDACardCollection::FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, 
 
 				if FAILED(hr = graphTools.AddFilterByDevicePath(piGraphBuilder, &piBDACapture, (*ppCaptureDevice)->strDevicePath, (*ppCaptureDevice)->strFriendlyName))
 				{
+					delete *ppCaptureDevice;
+					*ppCaptureDevice = NULL;
 					break;
 				}
 
@@ -399,7 +406,10 @@ BOOL BDACardCollection::FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, 
 				piBDACapture.Release();
 				delete *ppCaptureDevice;
 				*ppCaptureDevice = NULL;
+				hr = S_OK;
 			}
+			if FAILED(hr)
+				break;
 		}
 
 		//if (hr != S_OK)
@@ -433,6 +443,6 @@ BOOL BDACardCollection::FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, 
 
 	(log << "Finished Finding Demod and Capture filters\n").Write();
 
-	return (bFoundDemod);
+	return (SUCCEEDED(hr));
 }
 

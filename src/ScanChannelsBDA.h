@@ -96,9 +96,12 @@ private:
 	FilterGraphTools graphTools;
 	Mpeg2DataParser m_mpeg2parser;
 
+	LogMessage verbose;
 	LogMessageConsoleOutput m_console;
 	int m_consoleHandle;
 	int m_consoleVerboseHandle;
+	int m_logfileHandle;
+	int m_logfileVerboseHandle;
 
 	BDACardCollection cardList;
 	BDACard *m_pBDACard;

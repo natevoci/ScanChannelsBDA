@@ -31,6 +31,8 @@
 #include <bdamedia.h>
 #include <stdio.h>
 
+extern LogMessageWriter lmw;
+
 BDAChannelScan::BDAChannelScan()
 {
 	CoInitializeEx(NULL, COINIT_MULTITHREADED);
@@ -50,13 +52,18 @@ BDAChannelScan::BDAChannelScan()
 	m_bScanning = FALSE;
 	m_bVerbose = FALSE;
 
+	cardList.SetLogCallback(&lmw);
 	SetLogCallback(&m_console);
+	SetLogCallback(&lmw);
 	m_consoleHandle = m_mpeg2parser.Output()->AddCallback(&m_console);
+	m_logfileHandle = m_mpeg2parser.Output()->AddCallback(&lmw);
+	verbose.AddCallback(&lmw);
 }
 
 BDAChannelScan::~BDAChannelScan()
 {
 	m_mpeg2parser.Output()->RemoveCallback(m_consoleHandle);
+	m_mpeg2parser.Output()->RemoveCallback(m_logfileHandle);
 	CoUninitialize();
 }
 
@@ -195,7 +202,9 @@ void BDAChannelScan::DestroyGraph()
 	m_piTuner.Release();
 	graphTools.RemoveAllFilters(m_piGraphBuilder);
 
-	m_pBDANetworkProvider.Release();	//causes an exception
+	//m_pBDANetworkProvider.Release();	//causes an exception. don't know why
+	m_pBDANetworkProvider.Detach();		//so i'll just do this instead
+
 	m_pBDAMpeg2Demux.Release();
 	m_pBDATIF.Release();
 	m_pBDASecTab.Release();
@@ -353,28 +362,15 @@ HRESULT BDAChannelScan::SignalStatistics(long frequency, long bandwidth)
 
 	BOOL bKeyboardEvent = FALSE;
 
+	(log << "# locking " << frequency << ", " << bandwidth << "\n").Show();
 	do
 	{
 		hr = LockChannel(frequency, bandwidth, bLocked, bPresent, nStrength, nQuality);
 
-		switch (hr)
-		{
-			case S_OK:
-				(log << "# locked " << frequency << ", " << bandwidth
-					<< " signal locked = " << (bLocked ? "Y" : "N")
-					<< " present = " << (bPresent ? "Y" : "N")
-					<< " stength = " << nStrength
-					<< " quality = " << nQuality << "\n").Show();
-				break;
-
-			default:
-				(log << "# no lock " << frequency << ", " << bandwidth
-					<< " signal locked = " << (bLocked ? "Y" : "N")
-					<< " present = " << (bPresent ? "Y" : "N")
-					<< " stength = " << nStrength
-					<< " quality = " << nQuality << "\n").Show();
-				break;
-		}
+		(log << "# signal locked = " << (bLocked ? "Y" : "N")
+			 << " present = " << (bPresent ? "Y" : "N")
+			 << " stength = " << nStrength
+			 << " quality = " << nQuality << "\n").Show();
 
 		if (::WaitForSingleObject(::GetStdHandle(STD_INPUT_HANDLE), 100) == WAIT_OBJECT_0)
 			bKeyboardEvent = TRUE;
@@ -393,10 +389,12 @@ void BDAChannelScan::ToggleVerbose()
 	if (m_bVerbose)
 	{
 		m_consoleVerboseHandle = m_mpeg2parser.VerboseOutput()->AddCallback(&m_console);
+		m_logfileVerboseHandle = m_mpeg2parser.VerboseOutput()->AddCallback(&lmw);
 	}
 	else
 	{
 		m_mpeg2parser.VerboseOutput()->RemoveCallback(m_consoleVerboseHandle);
+		m_mpeg2parser.VerboseOutput()->RemoveCallback(m_logfileVerboseHandle);
 	}
 }
 
@@ -554,16 +552,25 @@ HRESULT	BDAChannelScan::LockChannel(long lFrequency, long lBandwidth, BOOL &lock
 		pTuner.Release();
 		piTuneRequest.Release();
 
-
-		//Check that channel locked ok.
-		if (FAILED(hr = GetSignalStatistics(locked, present, strength, quality)))
-			return hr;
-		
-		if ((locked>0) || (present>0))
+		//Try testing the signal stats 10 times during a second to allow time for the tuner to lock.
+		for (int tests = 0; tests < 10 ; tests++ )
 		{
-			return S_OK;
+			//Check that channel locked ok.
+			if (FAILED(hr = GetSignalStatistics(locked, present, strength, quality)))
+				return hr;
+
+			(verbose << "# signal locked = " << (locked ? "Y" : "N")
+					 << " present = " << (present ? "Y" : "N")
+					 << " stength = " << strength
+					 << " quality = " << quality << "\n").Show();
+			
+			//if ((locked>0) || (present>0) || (quality>0))
+			if (quality>0)
+				return S_OK;
+
+			Sleep(100);
 		}
-		return E_FAIL;
+		return S_FALSE;
 	}
 
 	return hr;
