@@ -28,110 +28,6 @@
 
 #include <process.h>
 #include <math.h>
-#include <vector>
-
-enum table_type {
-	PAT,
-	PMT,
-	SDT,
-	NIT
-};
-
-enum running_mode {
-	RM_NOT_RUNNING = 0x01,
-	RM_STARTS_SOON = 0x02,
-	RM_PAUSING     = 0x03,
-	RM_RUNNING     = 0x04
-};
-
-#define AUDIO_CHAN_MAX (32)
-#define CA_SYSTEM_ID_MAX (16)
-
-struct section_buf
-{
-	unsigned int run_once  : 1;
-	unsigned int segmented : 1;	/* segmented by table_id_ext */
-	int fd;
-	int pid;
-	int table_id;
-	int table_id_ext;
-	int section_version_number;
-	__int8 section_done[32];
-	int sectionfilter_done;
-	unsigned char *buf;
-	time_t timeout;
-	time_t start_time;
-	time_t running_time;
-	struct section_buf *next_seg;	/* this is used to handle
-									 * segmented tables (like NIT-other)
-									 */
-};
-
-struct service
-{
-	int transport_stream_id;
-	int service_id;
-	unsigned char *provider_name;
-	unsigned char *service_name;
-	__int16 pmt_pid;
-	__int16 pcr_pid;
-	__int16 video_pid;
-	__int16 audio_pid[AUDIO_CHAN_MAX];
-	char audio_lang[AUDIO_CHAN_MAX][4];
-	int audio_num;
-	__int16 ca_id[CA_SYSTEM_ID_MAX];
-	int ca_num;
-	__int16 teletext_pid;
-	__int16 subtitling_pid;
-	__int16 ac3_pid;
-	unsigned int type         : 8;
-	unsigned int scrambled	  : 1;
-	enum running_mode running;
-	struct section_buf *priv;
-	int channel_num;
-};
-
-struct transponder {
-	vector<service *> services;
-	int network_id;
-	int transport_stream_id;
-	int original_network_id;
-	enum fe_type type;
-	//struct dvb_frontend_parameters param;
-	enum polarisation polarisation;		/* only for DVB-S */
-	int orbital_pos;			/* only for DVB-S */
-	unsigned int we_flag		  : 1;	/* West/East Flag - only for DVB-S */
-	unsigned int scan_done		  : 1;
-	unsigned int last_tuning_failed	  : 1;
-	unsigned int other_frequency_flag : 1;	/* DVB-T */
-	int n_other_f;
-	__int32 *other_f;			/* DVB-T freqeuency-list descriptor */
-	unsigned char *network_name;
-	int frequency;
-	int bandwidth;
-};
-
-static struct transponder *current_tp;
-
-
-static int get_bit (__int8 *bitfield, int bit)
-{
-	return (bitfield[bit/8] >> (bit % 8)) & 1;
-}
-
-static void set_bit (__int8 *bitfield, int bit)
-{
-	bitfield[bit/8] |= 1 << (bit % 8);
-}
-
-
-
-vector<section_buf *> running_filters;
-vector<section_buf *> waiting_filters;
-#define MAX_RUNNING 32
-static struct section_buf* poll_section_bufs[MAX_RUNNING];
-
-
 
 void ParseMpeg2DataThread( void *pParam )
 {
@@ -153,6 +49,7 @@ Mpeg2DataParser::Mpeg2DataParser()
 	long_timeout = 0;
 
 	m_networkNumber = 0;
+	current_tp = NULL;
 
 	verbose = FALSE;
 }
@@ -212,85 +109,25 @@ void Mpeg2DataParser::StartMpeg2DataScanThread()
 
 	try
 	{
-		current_tp = (struct transponder *)calloc(1, sizeof(*current_tp));
+		//current_tp = (struct transponder *)calloc(1, sizeof(*current_tp));
 
 		if (m_piIMpeg2Data != NULL) 
 		{
-			struct section_buf s0;
-			SetupFilter(&s0, 0x00, 0x00, 1, 0, 5);  // PAT
-			AddFilter(&s0);
+			struct section_buf *s0;
 
-			struct section_buf s2;
-			SetupFilter(&s2, 0x10, 0x40, 1, 0, 15); // NIT
-			AddFilter(&s2);
+			s0 = (struct section_buf *)malloc(sizeof(struct section_buf));
+			SetupFilter(s0, 0x00, 0x00, 1, 0, 5);  // PAT
+			AddFilter(s0);
 
-			struct section_buf s1;
-			SetupFilter(&s1, 0x11, 0x42, 1, 0, 5);  // SDT
-			AddFilter(&s1);
+			s0 = (struct section_buf *)malloc(sizeof(struct section_buf));
+			SetupFilter(s0, 0x10, 0x40, 1, 0, 15); // NIT
+			AddFilter(s0);
 
-			do
-			{
-				ReadFilters ();
-			} while ((running_filters.size() > 0) || (waiting_filters.size()));
+			s0 = (struct section_buf *)malloc(sizeof(struct section_buf));
+			SetupFilter(s0, 0x11, 0x42, 1, 0, 5);  // SDT
+			AddFilter(s0);
 
-			struct service *s;
-
-			printf("\nNetwork_%i(\"%s\", %i, %i, 1)\n", m_networkNumber, current_tp->network_name, current_tp->frequency, current_tp->bandwidth);
-
-			int i=1;
-			vector<service *>::iterator it = current_tp->services.begin();
-			for ( ; it != current_tp->services.end() ; it++ )
-			{
-				s = *it;
-
-				for (int audio = 0 ; audio <= s->audio_num ; audio++ )
-				{
-					if (((audio < s->audio_num) && (s->audio_pid[audio])) || (s->ac3_pid))
-					{
-						printf("  Program_");
-						if (i < 10) printf(" ");
-						printf("%i(\"%s", i, s->service_name);
-
-						int len = strlen((char *)s->service_name);
-						if ((audio > 0) && (audio == s->audio_num))
-						{
-							printf(" AC3");
-							len += 4;
-						}
-						printf("\"");
-						
-						while ( len < 20 ) { printf(" "); len++; }
-						printf(", ");
-
-						PaddingForNumber(s->service_id, 4);
-						printf("%i, ",	s->service_id);
-
-						PaddingForNumber(s->video_pid, 4);
-						printf("%i, ", s->video_pid);
-
-						if (audio < s->audio_num)
-						{
-							PaddingForNumber(s->audio_pid[audio], 5);
-							printf("%i, ", s->audio_pid[audio]);
-						}
-						else
-						{
-							PaddingForNumber(s->ac3_pid, 4);
-							printf("A%i, ", s->ac3_pid);
-						}
-						
-						PaddingForNumber(s->pmt_pid, 4);
-						printf("%i)", s->pmt_pid);
-
-						printf("    # %i", s->channel_num);
-
-						printf("\n");
-
-						i++;
-					}
-				}
-			}
-			printf("\n");
+			ReadFilters();
 		}
 	}
 	catch(...)
@@ -336,7 +173,7 @@ void Mpeg2DataParser::ReadFilters(void)
 		s = waiting_filters.front();
 		ReadSection(s);
 		waiting_filters.erase(waiting_filters.begin());
-		//free (s);
+		free (s);
 	}
 }
 
@@ -409,12 +246,35 @@ struct service *Mpeg2DataParser::find_service(struct transponder *tp, int servic
 {
 	struct service *s;
 
-	vector<service *>::iterator it = tp->services.begin();
-	for ( ; it != tp->services.end() ; it++ )
+	vector<service *>::iterator it;
+	for ( it = tp->services.begin() ; it != tp->services.end() ; it++ )
 	{
 		s = *it;
 		if (s->service_id == service_id)
 			return s;
+	}
+	return NULL;
+}
+
+struct transponder *Mpeg2DataParser::alloc_transponder(int transport_stream_id)
+{
+	struct transponder *tp = (struct transponder *)calloc(1, sizeof(*tp));
+
+	tp->transport_stream_id = transport_stream_id;
+	transponders.push_back(tp);
+	return tp;
+}
+
+struct transponder *Mpeg2DataParser::find_transponder(int transport_stream_id)
+{
+	struct transponder *tp;
+
+	vector<transponder *>::iterator it;
+	for ( it = transponders.begin() ; it != transponders.end() ; it++ )
+	{
+		tp = *it;
+		if (tp->transport_stream_id == transport_stream_id)
+			return tp;
 	}
 	return NULL;
 }
@@ -442,16 +302,16 @@ void Mpeg2DataParser::parse_iso639_language_descriptor (const unsigned char *buf
 	}
 }
 
-void Mpeg2DataParser::parse_network_name_descriptor (const unsigned char *buf)
+void Mpeg2DataParser::parse_network_name_descriptor (const unsigned char *buf, struct transponder *tp)
 {
-	if (current_tp->network_name)
-		free (current_tp->network_name);
+	if (tp->network_name)
+		free (tp->network_name);
 
 	unsigned char len = buf [1];
 
-	current_tp->network_name = (unsigned char *)malloc (len + 1);
-	memcpy (current_tp->network_name, buf+2, len);
-	current_tp->network_name[len] = '\0';
+	tp->network_name = (unsigned char *)malloc (len + 1);
+	memcpy (tp->network_name, buf+2, len);
+	tp->network_name[len] = '\0';
 
 	if (verbose) printf("    Network Name '%.*s'\n", len, buf + 2);
 }
@@ -474,15 +334,16 @@ void Mpeg2DataParser::parse_terrestrial_delivery_system_descriptor (const unsign
 	//o = &t->param.u.ofdm;
 	//t->type = FE_OFDM;
 
-	current_tp->frequency = (buf[2] << 24) | (buf[3] << 16);
-	current_tp->frequency |= (buf[4] << 8) | buf[5];
-	current_tp->frequency /= 100;
-	if (verbose) printf("    Frequency %i", current_tp->frequency);
-	//t->param.inversion = spectral_inversion;
 
-	//o->bandwidth = BANDWIDTH_8_MHZ + ((buf[6] >> 5) & 0x3);
-	current_tp->bandwidth = 8 - ((buf[6] >> 5) & 0x3);
-	if (verbose) printf("    Bandwidth %i", current_tp->bandwidth);
+	t->frequency = (buf[2] << 24) | (buf[3] << 16);
+	t->frequency |= (buf[4] << 8) | buf[5];
+	t->frequency /= 100;
+	if (verbose) printf("    Frequency %i", t->frequency);
+
+
+	t->bandwidth = 8 - ((buf[6] >> 5) & 0x3);
+	if (verbose) printf("    Bandwidth %i", t->bandwidth);
+
 
 	//o->constellation = m_tab[(buf[7] >> 6) & 0x3];
 	switch ((buf[7] >> 6) & 0x3)
@@ -565,8 +426,9 @@ void Mpeg2DataParser::parse_terrestrial_delivery_system_descriptor (const unsign
 		break;
 	}
 
-	//t->other_frequency_flag = (buf[8] & 0x01);
-	DWORD other_freq = (buf[8] & 0x01);
+	t->other_frequency_flag = (buf[8] & 0x01);
+	if (t->other_frequency_flag)
+		if (verbose) printf("    Other frequency flags set\n");
 
 	//if (verbosity >= 5) {
 	//	debug("0x%#04x/0x%#04x ", t->network_id, t->transport_stream_id);
@@ -579,24 +441,30 @@ void Mpeg2DataParser::parse_terrestrial_delivery_system_descriptor (const unsign
 	//}
 }
 
-void Mpeg2DataParser::parse_frequency_list_descriptor (const unsigned char *buf)
+void Mpeg2DataParser::parse_frequency_list_descriptor (const unsigned char *buf, struct transponder *t)
 {
-	int n, i;
-
-	n = (buf[1] - 1) / 4;
-	if (n < 1 || (buf[2] & 0x03) != 3)
+	t->n_other_f = (buf[1] - 1) / 4;
+	if (t->n_other_f < 1 || (buf[2] & 0x03) != 3)
+	{
+		t->n_other_f = 0;
 		return;
+	}
+
+	if (t->other_f)
+		delete[] t->other_f;
+	t->other_f = new __int32[t->n_other_f];
 
 	buf += 3;
-	for (i = 0; i < n; i++) {
-		DWORD f = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
-		f /= 100;
-		if (verbose) printf("    Alternate Frequency %i\n", f);
+	for (int i = 0; i < t->n_other_f; i++)
+	{
+		t->other_f[i] = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
+		t->other_f[i] /= 100;
+		if (verbose) printf("    Alternate Frequency %i\n", t->other_f[i]);
 		buf += 4;
 	}
 }
 
-void Mpeg2DataParser::parse_terrestrial_uk_channel_number (const unsigned char *buf)
+void Mpeg2DataParser::parse_terrestrial_uk_channel_number (const unsigned char *buf, struct transponder *t)
 {
 	int i, n, channel_num, service_id;
 	//struct transponder *t;
@@ -615,14 +483,13 @@ void Mpeg2DataParser::parse_terrestrial_uk_channel_number (const unsigned char *
 		if (verbose) printf("    Service ID 0x%x has channel number %d\n", service_id, channel_num);
 
 		//Might need to loop here for other transponders
-		vector<service *>::iterator it = current_tp->services.begin();
-		for ( ; it != current_tp->services.end() ; it++ )
-		{
-			s = *it;
-			if (s->service_id == service_id)
-				s->channel_num = channel_num;
-		}
+		s = find_service(t, service_id);
+		if (!s)
+			alloc_service(t, service_id);
 
+		if (s)
+			s->channel_num = channel_num;
+		
 		buf += 4;
 	}
 }
@@ -721,7 +588,7 @@ int Mpeg2DataParser::find_descriptor(__int8 tag, const unsigned char *buf, int r
 	return 0;
 }
 
-void Mpeg2DataParser::parse_descriptorsPMT(const unsigned char *buf, int remaining_length, struct service *data)
+void Mpeg2DataParser::parse_descriptorsPMT(const unsigned char *buf, int remaining_length, struct service *s)
 {
 	while (remaining_length > 0)
 	{
@@ -737,7 +604,7 @@ void Mpeg2DataParser::parse_descriptorsPMT(const unsigned char *buf, int remaini
 		switch (descriptor_tag)
 		{
 			case 0x0a:
-				parse_iso639_language_descriptor (buf, data);
+				parse_iso639_language_descriptor (buf, s);
 				break;
 
 			default:
@@ -750,7 +617,7 @@ void Mpeg2DataParser::parse_descriptorsPMT(const unsigned char *buf, int remaini
 	}
 }
 
-void Mpeg2DataParser::parse_descriptorsNIT(const unsigned char *buf, int remaining_length, struct transponder *data)
+void Mpeg2DataParser::parse_descriptorsNIT(const unsigned char *buf, int remaining_length, struct transponder *tp)
 {
 	while (remaining_length > 0)
 	{
@@ -767,29 +634,29 @@ void Mpeg2DataParser::parse_descriptorsNIT(const unsigned char *buf, int remaini
 		{
 			case 0x40:
 				if (verbose) printf("  Found a network name descriptor\n");
-				parse_network_name_descriptor (buf);
+				parse_network_name_descriptor (buf, tp);
 				break;
 
 			case 0x43:
 				if (verbose) printf("  Found a satellite delivery system descriptor\n");
-				//parse_satellite_delivery_system_descriptor (buf, data);
+				//parse_satellite_delivery_system_descriptor (buf, tp);
 				print_unknown_descriptor(buf, descriptor_len);
 				break;
 
 			case 0x44:
 				if (verbose) printf("  Found a cable delivery system descriptor\n");
-				//parse_cable_delivery_system_descriptor (buf, data);
+				//parse_cable_delivery_system_descriptor (buf, tp);
 				print_unknown_descriptor(buf, descriptor_len);
 				break;
 
 			case 0x5a:
 				if (verbose) printf("  Found a terrestrial delivery system descriptor\n");
-				parse_terrestrial_delivery_system_descriptor (buf, data);
+				parse_terrestrial_delivery_system_descriptor (buf, tp);
 				break;
 
 			case 0x62:
 				if (verbose) printf("  Found a frequency list descriptor\n");
-				parse_frequency_list_descriptor (buf);
+				parse_frequency_list_descriptor (buf, tp);
 				break;
 
 			case 0x83:
@@ -798,7 +665,7 @@ void Mpeg2DataParser::parse_descriptorsNIT(const unsigned char *buf, int remaini
 				 * problems when 0x83 is something entirely different... */
 				//if (vdr_dump_channum)
 				if (verbose) printf("  Found a terrestrial uk channel number\n");
-				parse_terrestrial_uk_channel_number (buf);
+				parse_terrestrial_uk_channel_number (buf, tp);
 				break;
 
 			default:
@@ -812,7 +679,7 @@ void Mpeg2DataParser::parse_descriptorsNIT(const unsigned char *buf, int remaini
 	}
 }
 
-void Mpeg2DataParser::parse_descriptorsSDT(const unsigned char *buf, int remaining_length, struct service *data)
+void Mpeg2DataParser::parse_descriptorsSDT(const unsigned char *buf, int remaining_length, struct service *s)
 {
 	while (remaining_length > 0)
 	{
@@ -828,7 +695,7 @@ void Mpeg2DataParser::parse_descriptorsSDT(const unsigned char *buf, int remaini
 		switch (descriptor_tag)
 		{
 			case 0x48:
-				parse_service_descriptor (buf, data);
+				parse_service_descriptor (buf, s);
 				break;
 
 /*			case 0x53:
@@ -855,6 +722,13 @@ void Mpeg2DataParser::parse_pat(const unsigned char *buf, int section_length, in
 
 		if (service_id != 0)	/*  skip nit pid entry... */
 		{
+			if (!current_tp)
+			{
+				current_tp = find_transponder(transport_stream_id);	//i'm not expecting this to return anything, but just in case
+				if (!current_tp)
+					current_tp = alloc_transponder(transport_stream_id);
+			}
+
 			if (verbose) printf("  Found service id 0x%04x with PMT 0x%04x\n", service_id, pmtPID);
 			/* SDT might have been parsed first... */
 			s = find_service(current_tp, service_id);
@@ -1001,15 +875,21 @@ void Mpeg2DataParser::parse_nit (const unsigned char *buf, int section_length, i
 		return;
 	}
 
-	parse_descriptorsNIT (buf + 2, descriptors_loop_len, NULL);
+	parse_descriptorsNIT (buf + 2, descriptors_loop_len, current_tp);
 
 	section_length -= descriptors_loop_len + 4;
 	buf += descriptors_loop_len + 4;
 
 	while (section_length > 6) {
-		current_tp->network_id = network_id;
-		current_tp->transport_stream_id = (buf[0] << 8) | buf[1];
-		current_tp->original_network_id = (buf[2] << 8) | buf[3];
+		int transport_stream_id = (buf[0] << 8) | buf[1];
+		struct transponder *t;
+
+		t = find_transponder(transport_stream_id);
+		if (!t)
+			t = alloc_transponder(transport_stream_id);
+
+		t->network_id = network_id;
+		t->original_network_id = (buf[2] << 8) | buf[3];
 
 		descriptors_loop_len = ((buf[4] & 0x0f) << 8) | buf[5];
 
@@ -1017,14 +897,15 @@ void Mpeg2DataParser::parse_nit (const unsigned char *buf, int section_length, i
 		{
 			if (verbose) printf("section too short: transport_stream_id == 0x%04x, "
 								"section_length == %i, descriptors_loop_len == %i\n",
-								current_tp->transport_stream_id, section_length,
+								t->transport_stream_id, section_length,
 								descriptors_loop_len);
 			break;
 		}
 
-		if (verbose) printf("  transport_stream_id 0x%04x\n", current_tp->transport_stream_id);
+		if (verbose) printf("  transport_stream_id 0x%04x\n", t->transport_stream_id);
 
-		parse_descriptorsNIT (buf + 6, descriptors_loop_len, current_tp);
+
+		parse_descriptorsNIT (buf + 6, descriptors_loop_len, t);
 
 /*		if (tn.type == fe_info.type) {
 			// only add if develivery_descriptor matches FE type
@@ -1044,6 +925,11 @@ void Mpeg2DataParser::parse_sdt (const unsigned char *buf, int section_length, i
 {
 	buf += 3;	       /*  skip original network id + reserved field */
 
+	struct transponder *tp;
+	tp = find_transponder(transport_stream_id);	//i'm not expecting this to return anything, but just in case
+	if (!tp)
+		tp = alloc_transponder(transport_stream_id);
+
 	while (section_length > 4)
 	{
 		int service_id = (buf[0] << 8) | buf[1];
@@ -1059,10 +945,10 @@ void Mpeg2DataParser::parse_sdt (const unsigned char *buf, int section_length, i
 			return;
 		}
 
-		s = find_service(current_tp, service_id);
+		s = find_service(tp, service_id);
 		if (!s)
 			/* maybe PAT has not yet been parsed... */
-			s = alloc_service(current_tp, service_id);
+			s = alloc_service(tp, service_id);
 
 		s->running = (enum running_mode)((buf[3] >> 5) & 0x7);
 		s->scrambled = (buf[3] >> 4) & 1;
@@ -1156,7 +1042,8 @@ int Mpeg2DataParser::parse_section (struct section_buf *s)
 							s->pid, table_id, table_id_ext, section_number,
 							last_section_number, section_version_number);
 
-		switch (table_id) {
+		switch (table_id)
+		{
 		case 0x00:
 			if (verbose) printf("PAT\n");
 			parse_pat (buf, section_length, table_id_ext);
@@ -1199,38 +1086,6 @@ int Mpeg2DataParser::parse_section (struct section_buf *s)
 		return 0;
 	}
 	else if (s->sectionfilter_done)
-		return 1;
-
-	return 0;
-}
-
-int Mpeg2DataParser::read_sections (struct section_buf *s)
-{
-	int section_length;
-	//int count;
-
-	if (s->sectionfilter_done && !s->segmented)
-		return 1;
-
-	/* the section filter API guarantess that we get one full section
-	 * per read(), provided that the buffer is large enough (it is)
-	 */
-//	if (((count = read (s->fd, s->buf, sizeof(s->buf))) < 0) && errno == EOVERFLOW)
-//		count = read (s->fd, s->buf, sizeof(s->buf));
-//	if (count < 0) {
-//		printf("read_sections: read error");
-//		return -1;
-//	}
-
-//	if (count < 4)
-//		return -1;
-
-	section_length = ((s->buf[1] & 0x0f) << 8) | s->buf[2];
-
-//	if (count != section_length + 3)
-//		return -1;
-
-	if (parse_section(s) == 1)
 		return 1;
 
 	return 0;
@@ -1312,5 +1167,82 @@ void Mpeg2DataParser::PaddingForNumber(long number, long totalWidth)
 		printf(" ");
 		len++;
 	}
+}
+
+void Mpeg2DataParser::PrintDigitalWatchChannelsIni()
+{
+	struct service *s;
+
+	printf("\nNetwork_%i(\"%s\", %i, %i, 1)\n", m_networkNumber, current_tp->network_name, current_tp->frequency, current_tp->bandwidth);
+
+	int i;
+	if (current_tp->n_other_f > 0)
+		printf("#Alternate %s\n", ((current_tp->n_other_f > 1) ? "frequencies" : "frequency"));
+	for ( i=0 ; i<current_tp->n_other_f ; i++ )
+	{
+		printf("#Network_%i(\"%s\", %i, %i, 1)\n", m_networkNumber, current_tp->network_name, current_tp->other_f[i], current_tp->bandwidth);
+	}
+
+	i=1;
+	vector<service *>::iterator it;
+	for ( it = current_tp->services.begin() ; it != current_tp->services.end() ; it++ )
+	{
+		s = *it;
+
+		for (int audio = 0 ; audio <= s->audio_num ; audio++ )
+		{
+			if (((audio < s->audio_num) && (s->audio_pid[audio])) || (s->ac3_pid))
+			{
+				printf("  Program_");
+				if (i < 10) printf(" ");
+				printf("%i(\"%s", i, s->service_name);
+
+				int len = strlen((char *)s->service_name);
+				if ((audio > 0) && (audio == s->audio_num))
+				{
+					printf(" AC3");
+					len += 4;
+				}
+				printf("\"");
+				
+				while ( len < 20 ) { printf(" "); len++; }
+				printf(", ");
+
+				PaddingForNumber(s->service_id, 4);
+				printf("%i, ",	s->service_id);
+
+				PaddingForNumber(s->video_pid, 4);
+				printf("%i, ", s->video_pid);
+
+				if (audio < s->audio_num)
+				{
+					PaddingForNumber(s->audio_pid[audio], 5);
+					printf("%i, ", s->audio_pid[audio]);
+				}
+				else
+				{
+					PaddingForNumber(s->ac3_pid, 4);
+					printf("A%i, ", s->ac3_pid);
+				}
+				
+				PaddingForNumber(s->pmt_pid, 4);
+				printf("%i)    #", s->pmt_pid);
+
+				if (audio == 0)
+				{
+					if (s->channel_num)
+						printf(" LCN=%i", s->channel_num);
+
+					if (s->teletext_pid)
+						printf(" Teletext=%i", s->teletext_pid);
+				}
+
+				printf("\n");
+
+				i++;
+			}
+		}
+	}
+	printf("\n");
 }
 

@@ -850,6 +850,7 @@ HRESULT BDAChannelScan::scanChannel(long channelNumber, long frequency, long ban
 			printf("# locked %ld, %ld signal strength = %ld quality = %ld\n",
 					frequency, bandwidth, nStrength, nQuality);
 			m_mpeg2parser.WaitForScanToFinish(INFINITE);
+			m_mpeg2parser.PrintDigitalWatchChannelsIni();
 			break;
 
 		default:
