@@ -186,6 +186,7 @@ private:
 	int m_networkNumber;
 
 	BOOL verbose;
+	BOOL m_bThreadStarted;
 
 	struct transponder *  current_tp;
 	vector<transponder *> transponders;

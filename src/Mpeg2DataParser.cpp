@@ -52,6 +52,7 @@ Mpeg2DataParser::Mpeg2DataParser()
 	current_tp = NULL;
 
 	verbose = FALSE;
+	m_bThreadStarted = FALSE;
 }
 
 Mpeg2DataParser::~Mpeg2DataParser()
@@ -105,6 +106,7 @@ void Mpeg2DataParser::Reset()
 		DeleteTransponder(t);
 	}
 
+	m_bThreadStarted = FALSE;
 	ResetEvent(m_hScanningDoneEvent);
 }
 
@@ -145,6 +147,11 @@ void Mpeg2DataParser::WaitForScanToFinish(DWORD timeout)
 //////////////////////////////////////////////////////////////////////
 void Mpeg2DataParser::StartMpeg2DataScan()
 {
+	//Make sure we only start scanning the first time the ServiceChanged event calls us.
+	if (m_bThreadStarted)
+		return;
+	m_bThreadStarted = TRUE;
+
 	//Start a new thread to do the scanning because the 
 	//IGuideDataEvent::ServiceChanged method isn't allowed to block.
 	DWORD dwThreadId = 0;
