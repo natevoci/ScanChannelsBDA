@@ -53,6 +53,7 @@ BDAChannelScan::~BDAChannelScan()
 
 	m_pBDANetworkProvider.Release();
 	m_pBDATuner.Release();
+	m_pBDADemod.Release();
 	m_pBDACapture.Release();
 	m_pBDAMpeg2Demux.Release();
 	m_pBDATIF.Release();
@@ -368,6 +369,15 @@ HRESULT	BDAChannelScan::BuildGraph()
 		return FALSE;
 	}
 
+	if (m_pBDACard->bUsesDemod)
+	{
+		if (FAILED(hr = AddFilterByDisplayName(m_piGraphBuilder, m_pBDADemod.p, m_pBDACard->demodDevice.strDevicePath, m_pBDACard->demodDevice.strFriendlyName)))
+		{
+			cout << "Cannot load Demod Device" << endl;
+			return FALSE;
+		}
+	}
+
 	if (FAILED(hr = AddFilterByDisplayName(m_piGraphBuilder, m_pBDACapture.p, m_pBDACard->captureDevice.strDevicePath, m_pBDACard->captureDevice.strFriendlyName)))
 	{
 		cout << "Cannot load Capture Device" << endl;
@@ -399,10 +409,27 @@ HRESULT	BDAChannelScan::BuildGraph()
 		return E_FAIL;
 	}
 
-	if (FAILED(hr = ConnectFilters(m_piGraphBuilder, m_pBDATuner, m_pBDACapture)))
+	if (m_pBDACard->bUsesDemod)
 	{
-		cout << "Failed to connect Tuner Filter to Capture Filter" << endl;
-		return E_FAIL;
+		if (FAILED(hr = ConnectFilters(m_piGraphBuilder, m_pBDATuner, m_pBDADemod)))
+		{
+			cout << "Failed to connect Tuner Filter to Demod Filter" << endl;
+			return E_FAIL;
+		}
+
+		if (FAILED(hr = ConnectFilters(m_piGraphBuilder, m_pBDADemod, m_pBDACapture)))
+		{
+			cout << "Failed to connect Demod Filter to Capture Filter" << endl;
+			return E_FAIL;
+		}
+	}
+	else
+	{
+		if (FAILED(hr = ConnectFilters(m_piGraphBuilder, m_pBDATuner, m_pBDACapture)))
+		{
+			cout << "Failed to connect Tuner Filter to Capture Filter" << endl;
+			return E_FAIL;
+		}
 	}
 
 	CComPtr <IPin> pCapturePin;

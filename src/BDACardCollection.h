@@ -35,11 +35,13 @@ public:
 	virtual ~BDACard();
 
 	DirectShowSystemDevice tunerDevice;
+	DirectShowSystemDevice demodDevice;
 	DirectShowSystemDevice captureDevice;
 
 	BOOL bActive;
 	BOOL bNew;
 	BOOL bDetected;
+	BOOL bUsesDemod;
 };
 
 
@@ -59,7 +61,7 @@ private:
 	BOOL LoadCardsFromHardware();
 	BOOL LoadCardsFromFile();
 	void AddCardToList(BDACard* currCard);
-	BOOL FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, DirectShowSystemDevice** ppCaptureDevice);
+	BOOL FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, DirectShowSystemDevice** ppDemodDevice, DirectShowSystemDevice** ppCaptureDevice);
 
 	LPWSTR m_filename;
 };

@@ -42,6 +42,7 @@ BDACard::BDACard()
 	bActive = FALSE;
 	bNew = FALSE;
 	bDetected = FALSE;
+	bUsesDemod = FALSE;
 }
 
 BDACard::~BDACard()
@@ -276,7 +277,6 @@ BOOL BDACardCollection::LoadCardsFromHardware()
 
 	while (enumerator.Next(&pTunerDevice) == S_OK)
 	{
-
 		BDACard *bdaCard = NULL;
 
 		std::vector<BDACard *>::iterator it = cards.begin();
@@ -297,13 +297,20 @@ BOOL BDACardCollection::LoadCardsFromHardware()
 		{
 			//(g_log << "  " << pTunerDevice->strFriendlyName << " - " << pTunerDevice->strDevicePath).Write();
 
+			DirectShowSystemDevice* pDemodDevice;
+
 			DirectShowSystemDevice* pCaptureDevice;
-			if (FindCaptureDevice(pTunerDevice, &pCaptureDevice))
+			if (FindCaptureDevice(pTunerDevice, &pDemodDevice, &pCaptureDevice))
 			{
 				//(g_log << "    " << pCaptureDevice->strFriendlyName << " - " << pCaptureDevice->strDevicePath).Write();
 
 				bdaCard = new BDACard();
 				bdaCard->tunerDevice = *pTunerDevice;
+				if (pDemodDevice)
+				{
+					bdaCard->demodDevice = *pDemodDevice;
+					bdaCard->bUsesDemod = TRUE;
+				}
 				bdaCard->captureDevice = *pCaptureDevice;
 				cards.push_back(bdaCard);
 			}
@@ -324,7 +331,7 @@ BOOL BDACardCollection::LoadCardsFromHardware()
 	return TRUE;
 }
 
-BOOL BDACardCollection::FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, DirectShowSystemDevice** ppCaptureDevice)
+BOOL BDACardCollection::FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, DirectShowSystemDevice** ppDemodDevice, DirectShowSystemDevice** ppCaptureDevice)
 {
 	HRESULT hr;
 	CComPtr <IGraphBuilder> piGraphBuilder;
@@ -332,11 +339,13 @@ BOOL BDACardCollection::FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, 
 	CComPtr <ITuningSpace> piTuningSpace;
 	CComPtr <ITuneRequest> pTuneRequest;
 	CComPtr <IBaseFilter> piBDATuner;
+	CComPtr <IBaseFilter> piBDADemod;
 	CComPtr <IBaseFilter> piBDACapture;
 
 	BOOL bRemoveNP = FALSE;
 	BOOL bRemoveTuner = FALSE;
-	BOOL bRemoveCapture = FALSE;
+	BOOL bFoundDemod = FALSE;
+	BOOL bFoundCapture = FALSE;
 
 	do
 	{
@@ -416,38 +425,65 @@ BOOL BDACardCollection::FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, 
 		}
 
 		DirectShowSystemDeviceEnumerator enumerator(KSCATEGORY_BDA_RECEIVER_COMPONENT);
-		*ppCaptureDevice = NULL;
-		while (hr = enumerator.Next(ppCaptureDevice) == S_OK)
+		*ppDemodDevice = NULL;
+		while (hr = enumerator.Next(ppDemodDevice) == S_OK)
 		{
-			if (FAILED(hr = AddFilterByDisplayName(piGraphBuilder, piBDACapture.p, (*ppCaptureDevice)->strDevicePath, (*ppCaptureDevice)->strFriendlyName)))
-				//return (g_log << "Cannot load Capture Device").Write();
-				return FALSE;
-
-			if (SUCCEEDED(hr = ConnectFilters(piGraphBuilder, piBDATuner, piBDACapture)))
+			if (FAILED(hr = AddFilterByDisplayName(piGraphBuilder, piBDADemod.p, (*ppDemodDevice)->strDevicePath, (*ppDemodDevice)->strFriendlyName)))
 			{
-				//LOGMSG("Connection succeeded, capatible capture device found.");
-				bRemoveCapture = TRUE;
+				break;
+			}
+
+			if (SUCCEEDED(hr = ConnectFilters(piGraphBuilder, piBDATuner, piBDADemod)))
+			{
+				bFoundDemod = TRUE;
 				break;
 			}
 
 			//(g_log << "Connection failed, trying next card").Write();
-			piBDACapture.Release();
-			delete *ppCaptureDevice;
-			*ppCaptureDevice = NULL;
+			piBDADemod.Release();
+			delete *ppDemodDevice;
+			*ppDemodDevice = NULL;
 		}
+
+		if (bFoundDemod)
+		{
+			*ppCaptureDevice = NULL;
+			while (hr = enumerator.Next(ppCaptureDevice) == S_OK)
+			{
+				if (FAILED(hr = AddFilterByDisplayName(piGraphBuilder, piBDACapture.p, (*ppCaptureDevice)->strDevicePath, (*ppCaptureDevice)->strFriendlyName)))
+				{
+					break;
+				}
+
+				if (SUCCEEDED(hr = ConnectFilters(piGraphBuilder, piBDADemod, piBDACapture)))
+				{
+					bFoundCapture = TRUE;
+					break;
+				}
+
+				//(g_log << "Connection failed, trying next card").Write();
+				piBDACapture.Release();
+				delete *ppCaptureDevice;
+				*ppCaptureDevice = NULL;
+			}
+		}
+
 		//if (hr != S_OK)
 			//(g_log << "No Cards Left").Write();
 	} while (FALSE);
 
 	DisconnectAllPins(piGraphBuilder);
-	if (bRemoveCapture)
+	if (bFoundCapture)
 		piGraphBuilder->RemoveFilter(piBDACapture);
+	if (bFoundDemod)
+		piGraphBuilder->RemoveFilter(piBDADemod);
 	if (bRemoveTuner)
 		piGraphBuilder->RemoveFilter(piBDATuner);
 	if (bRemoveNP)
 		piGraphBuilder->RemoveFilter(piBDANetworkProvider);
 
 	piBDACapture.Release();
+	piBDADemod.Release();
 	piBDATuner.Release();
 	piBDANetworkProvider.Release();
 
@@ -455,6 +491,12 @@ BOOL BDACardCollection::FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, 
 	piTuningSpace.Release();
 	piGraphBuilder.Release();
 
-	return (*ppCaptureDevice != NULL);
+	if (!bFoundCapture)
+	{
+		*ppCaptureDevice = *ppDemodDevice;
+		*ppDemodDevice = NULL;
+	}
+
+	return (bFoundDemod);
 }
 

@@ -75,6 +75,7 @@ private:
 
 	CComPtr <IBaseFilter> m_pBDANetworkProvider;
 	CComPtr <IBaseFilter> m_pBDATuner;
+	CComPtr <IBaseFilter> m_pBDADemod;
 	CComPtr <IBaseFilter> m_pBDACapture;
 	CComPtr <IBaseFilter> m_pBDAMpeg2Demux;
 	CComPtr <IBaseFilter> m_pBDATIF;
