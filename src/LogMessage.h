@@ -30,19 +30,29 @@
 
 using namespace std;
 
+//LogMessageCallback
 class LogMessageCallback
 {
 public:
 	LogMessageCallback();
 	virtual ~LogMessageCallback();
 	int GetHandle();
-	virtual void Write(LPSTR pStr) {};
-	virtual void Show(LPSTR pStr) {};
-	virtual void Clear() {};
+
+	virtual void Indent();
+	virtual void Unindent();
+
+	virtual void Write(LPWSTR pStr);
+	virtual void Show(LPWSTR pStr);
+	virtual void Clear();
+
+protected:
+	int m_indent;
+
 private:
 	int m_handle;
 };
 
+//LogMessage
 class LogMessage
 {
 public:
@@ -58,12 +68,15 @@ public:
 	int Write();
 	int Write(int returnValue);
 
+	void Indent();
+	void Unindent();
+
 	void ClearFile();
 
 	void LogVersionNumber();
 
-	void writef(char *sz,...);
-	void showf(char *sz,...);
+//	void writef(LPWSTR sz,...);
+	void showf(LPSTR sz,...);
 
 	LogMessage& operator<< (const int& val);
 	LogMessage& operator<< (const double& val);
@@ -78,16 +91,44 @@ public:
 	LogMessage& operator<< (const LPCSTR& val);
 	LogMessage& operator<< (const LPCWSTR& val);
 
+	LPWSTR GetBuffer();
+
 private:
+	void _writef(LPWSTR sz,...);
+
 	void WriteLogMessage();
 
-	char m_str[8192];
+	LPWSTR m_pStr;
+	unsigned long m_lStrLength;
+	int m_indent;
 
 	int callbackHandleID;
 	vector<LogMessageCallback *> callbacks;
 };
 
+//LogMessageCaller
+class LogMessageCaller
+{
+public:
+	LogMessageCaller();
+	virtual ~LogMessageCaller();
 
-extern LogMessage g_log;
+	virtual void SetLogCallback(LogMessageCallback *callback);
+
+protected:
+	LogMessage log;
+	LogMessageCallback *m_pLogCallback;
+};
+
+//LogMessageIndent
+class LogMessageIndent
+{
+public:
+	LogMessageIndent(LogMessage *log);
+	virtual ~LogMessageIndent();
+	void Release();
+private:
+	LogMessage *m_log;
+};
 
 #endif

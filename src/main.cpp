@@ -31,6 +31,7 @@
 #include "GlobalFunctions.h"
 
 LogMessage g_log;
+LogMessageConsoleOutput consOut;
 
 HRESULT ShowMenu();
 HRESULT GetChannelInfo(long &freq, long &band);
@@ -43,7 +44,6 @@ int	_tmain(int argc, _TCHAR* argv[])
 	lmw.SetFilename(L"ScanChannelsBDA.log");
 	int writeHandle = g_log.AddCallback(&lmw);
 
-	LogMessageConsoleOutput consOut;
 	int consoleHandle = g_log.AddCallback(&consOut);
 
 	g_log.ClearFile();

@@ -19,8 +19,9 @@ LogMessageConsoleOutput::~LogMessageConsoleOutput()
 
 }
 
-void LogMessageConsoleOutput::Show(LPSTR pStr)
+void LogMessageConsoleOutput::Show(LPWSTR pStr)
 {
-	cout << pStr;
+	USES_CONVERSION;
+	cout << W2A(pStr);
 }
 

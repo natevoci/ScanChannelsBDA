@@ -119,7 +119,7 @@ static void set_bit (__int8 *bitfield, int bit)
 }
 
 
-class Mpeg2DataParser  
+class Mpeg2DataParser : public LogMessageCaller
 {
 public:
 	Mpeg2DataParser();

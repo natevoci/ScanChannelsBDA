@@ -265,6 +265,8 @@ void Mpeg2DataParser::ReadSection(struct section_buf *s)
 			{
 				verbose.showf(_T("\n%d section(s) found for pid=%.4x, tid=%.2x\n"), cSections, pid, tid);
 			
+				verbose.showf("pid \n");
+
 				for (WORD i = 0; i < cSections; i++)
 				{
 					// Iterate through the list of sections.

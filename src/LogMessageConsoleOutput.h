@@ -31,7 +31,7 @@ class LogMessageConsoleOutput : public LogMessageCallback
 public:
 	LogMessageConsoleOutput();
 	virtual ~LogMessageConsoleOutput();
-	virtual void Show(LPSTR pStr);
+	virtual void Show(LPWSTR pStr);
 };
 
 #endif

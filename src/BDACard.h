@@ -25,30 +25,47 @@
 
 #include "StdAfx.h"
 #include "SystemDeviceEnumerator.h"
+#include "LogMessage.h"
+#include "XMLDocument.h"
+#include "FilterGraphTools.h"
 
-class BDACard
+class BDACard : public LogMessageCaller
 {
 public:
 	BDACard();
 	virtual ~BDACard();
+
+	virtual void SetLogCallback(LogMessageCallback *callback);
+
+	HRESULT LoadFromXML(XMLElement *pElement);
+	HRESULT SaveToXML(XMLElement *pElement);
 
 	DirectShowSystemDevice tunerDevice;
 	DirectShowSystemDevice demodDevice;
 	DirectShowSystemDevice captureDevice;
 
 	HRESULT AddFilters(IGraphBuilder* piGraphBuilder);
-	HRESULT Connect(IGraphBuilder* piGraphBuilder, IBaseFilter* pSource);
+	HRESULT Connect(IBaseFilter* pSource);
 	HRESULT GetCapturePin(IPin** pCapturePin);
+
+	HRESULT RemoveFilters();
+
+	HRESULT GetSignalStatistics(BOOL &locked, BOOL &present, long &strength, long &quality);
 
 	BOOL bActive;
 	BOOL bNew;
 	BOOL bDetected;
+
+private:
+	CComPtr <IGraphBuilder> m_piGraphBuilder;
 
 	CComPtr <IBaseFilter> m_pBDATuner;
 	CComPtr <IBaseFilter> m_pBDADemod;
 	CComPtr <IBaseFilter> m_pBDACapture;
 
 	CComPtr <IPin> m_pCapturePin;
+
+	FilterGraphTools graphTools;
 };
 
 #endif

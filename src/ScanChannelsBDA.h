@@ -28,12 +28,13 @@
 #include "stdafx.h"
 #include "Mpeg2DataParser.h"
 #include "BDACardCollection.h"
+#include "FilterGraphTools.h"
 #include "LogMessage.h"
 #include "LogMessageConsoleOutput.h"
 
 #include <bdatif.h>
 
-class BDAChannelScan : IGuideDataEvent
+class BDAChannelScan : IGuideDataEvent, public LogMessageCaller
 {
 public:
 	BDAChannelScan();
@@ -92,6 +93,7 @@ private:
 	CComPtr <IGraphBuilder> m_piGraphBuilder;
 	CComPtr <IMediaControl> m_piMediaControl;
 
+	FilterGraphTools graphTools;
 	Mpeg2DataParser m_mpeg2parser;
 
 	LogMessageConsoleOutput m_console;

@@ -20,8 +20,6 @@
  *	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-//this is a file from DigitalWatch 2 that i've hacked up to work here.
-
 #include "FileReader.h"
 #include "GlobalFunctions.h"
 
@@ -48,12 +46,12 @@ FileReader::~FileReader()
 		Close();
 }
 
-BOOL FileReader::Open(LPCWSTR filename)
+HRESULT FileReader::Open(LPCWSTR filename)
 {
 	USES_CONVERSION;
 
 	m_hFile = CreateFile(W2T(filename), GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	return (m_hFile != INVALID_HANDLE_VALUE);
+	return (m_hFile != INVALID_HANDLE_VALUE) ? S_OK : E_FAIL;
 }
 
 void FileReader::Close()
@@ -62,15 +60,15 @@ void FileReader::Close()
 	m_hFile = INVALID_HANDLE_VALUE;
 }
 
-BOOL FileReader::ReadLine(LPWSTR &pStr)
+HRESULT FileReader::ReadLine(LPWSTR &pStr)
 {
 	if (m_hFile == INVALID_HANDLE_VALUE)
-		return FALSE;
+		return E_FAIL;
 
 	if (!m_pBuffer)
 	{
 		if (!ReadMore())
-			return FALSE;
+			return S_FALSE;
 	}
 
 	LPWSTR strEOL = wcspbrk(m_pBuffer, L"\r\n");
@@ -78,7 +76,7 @@ BOOL FileReader::ReadLine(LPWSTR &pStr)
 	while (strEOL == NULL)
 	{
 		if (!ReadMore())
-			return FALSE;
+			return S_FALSE;
 		strEOL = wcspbrk(m_pBuffer, L"\r\n");
 	}
 
@@ -95,7 +93,7 @@ BOOL FileReader::ReadLine(LPWSTR &pStr)
 	delete[] m_pBuffer;
 	m_pBuffer = newBuffer;
 
-	return TRUE;
+	return S_OK;
 }
 
 BOOL FileReader::ReadMore()

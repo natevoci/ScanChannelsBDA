@@ -1,6 +1,6 @@
 /**
- *	FileReader.h
- *	Copyright (C) 2004 Nate
+ *	ReferenceCountingClass.h
+ *	Copyright (C) 2005 Nate
  *
  *	This file is part of DigitalWatch, a free DTV watching and recording
  *	program for the VisionPlus DVB-T.
@@ -20,28 +20,22 @@
  *	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef FILEREADER_H
-#define FILEREADER_H
+#ifndef REFERENCECOUNTINGCLASS_H
+#define REFERENCECOUNTINGCLASS_H
 
 #include "StdAfx.h"
 
-class FileReader  
+class ReferenceCountingClass
 {
 public:
-	FileReader();
-	virtual ~FileReader();
+	ReferenceCountingClass();
+	virtual ~ReferenceCountingClass();
 
-	HRESULT Open(LPCWSTR filename);
-	void Close();
-
-	HRESULT ReadLine(LPWSTR &pStr);
+    virtual ULONG AddRef();
+    virtual ULONG Release();
 
 private:
-	BOOL ReadMore();
-
-	HANDLE m_hFile;
-	LPWSTR m_pBuffer;
-	LPWSTR m_pExtBuffer;
+	unsigned long m_refcount;
 };
 
 #endif

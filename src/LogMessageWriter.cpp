@@ -61,7 +61,7 @@ void LogMessageWriter::SetFilename(LPWSTR filename)
 	}
 }
 
-void LogMessageWriter::Write(LPSTR pStr)
+void LogMessageWriter::Write(LPWSTR pStr)
 {
 	USES_CONVERSION;
 	if (m_logFilename)
@@ -71,7 +71,11 @@ void LogMessageWriter::Write(LPSTR pStr)
 
 		if (file.is_open() == 1)
 		{
-			file << pStr;
+			for ( int i=0 ; i<m_indent ; i++ )
+			{
+				file << "  ";
+			}
+			file << W2A(pStr);
 			file.close();
 		}
 	}

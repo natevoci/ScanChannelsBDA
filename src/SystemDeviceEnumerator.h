@@ -24,9 +24,10 @@
 #define SYSTEMDEVICEENUMERATOR_H
 
 #include "StdAfx.h"
+#include "LogMessage.h"
 #include <dshow.h>
 
-class DirectShowSystemDevice
+class DirectShowSystemDevice : public LogMessageCaller
 {
 public:
 	DirectShowSystemDevice();
@@ -41,7 +42,7 @@ public:
 	BOOL bValid;
 };
 
-class DirectShowSystemDeviceEnumerator
+class DirectShowSystemDeviceEnumerator : public LogMessageCaller
 {
 public:
 	DirectShowSystemDeviceEnumerator(REFCLSID deviceClass);
@@ -53,7 +54,6 @@ public:
 private:
 	CComPtr <IEnumMoniker> m_pEnum;
 	CComPtr <ICreateDevEnum> m_pSysDevEnum;
-
 };
 
 #endif

@@ -41,15 +41,16 @@ void SetdRectEmpty(dRECT* bounds);
 void GetCommandPath(LPWSTR pPath);
 void GetCommandExe(LPWSTR pExe);
 
+long wcsToColor(LPWSTR string);
 
 BOOL findchr(char character, LPCSTR strCharSet);
 BOOL isWhitespace(char character);
-void skipWhitespaces(LPSTR &str);
+void skipWhitespaces(LPCSTR &str);
 LPSTR findEndOfTokenName(LPCSTR str);
 
 BOOL findchr(wchar_t character, LPCWSTR strCharSet);
 BOOL isWhitespace(wchar_t character);
-void skipWhitespaces(LPWSTR &str);
+void skipWhitespaces(LPCWSTR &str);
 LPWSTR findEndOfTokenName(LPCWSTR str);
 
 void strCopy(LPSTR &dest, LPCSTR src, long length);
@@ -61,5 +62,8 @@ void strCopy(LPSTR &dest, LPCSTR src);
 void strCopy(LPWSTR &dest, LPCWSTR src);
 void strCopyA2W(LPWSTR &dest, LPCSTR src);
 void strCopyW2A(LPSTR &dest, LPCWSTR src);
+
+void strCopy(LPSTR &dest, long value);
+void strCopy(LPWSTR &dest, long value);
 
 #endif

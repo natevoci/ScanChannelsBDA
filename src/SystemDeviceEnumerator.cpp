@@ -20,11 +20,12 @@
  *	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-//this is a file from DigitalWatch 2 that i've hacked up to work here.
-
 #include "SystemDeviceEnumerator.h"
-//#include "LogMessage.h"
 #include "GlobalFunctions.h"
+
+//////////////////////////////////////////////////////////////////////
+// DirectShowSystemDevice
+//////////////////////////////////////////////////////////////////////
 
 DirectShowSystemDevice::DirectShowSystemDevice()
 {
@@ -59,41 +60,43 @@ HRESULT DirectShowSystemDevice::CreateInstance(CComPtr <IBaseFilter> &pFilter)
 	CComPtr <IMoniker> pMoniker;
 	DWORD dwEaten;
 
-	if (FAILED(hr = CreateBindCtx(0, &pBindCtx.p)))
+	if FAILED(hr = CreateBindCtx(0, &pBindCtx))
 	{
-		//(g_log << "AddFilterByDevicePath: Could not create bind context").Write();
+		(log << "AddFilterByDevicePath: Could not create bind context\n").Write();
 		return hr;
 	}
 
-	if (FAILED(hr = MkParseDisplayName(pBindCtx, strDevicePath, &dwEaten, &pMoniker)) || (pMoniker.p == NULL))
+	if (FAILED(hr = MkParseDisplayName(pBindCtx, strDevicePath, &dwEaten, &pMoniker)) || (pMoniker == NULL))
 	{
-		//(g_log << "AddFilterByDevicePath: Could not create moniker from device path " << strDevicePath << "  (" << strFriendlyName << ")").Write();
+		(log << "AddFilterByDevicePath: Could not create moniker from device path " << strDevicePath << "  (" << strFriendlyName << ")\n").Write();
 		pBindCtx.Release();
 		return hr;
 	}
 
-	hr = pMoniker->BindToObject(0, 0, IID_IBaseFilter, (void**)&pFilter);
-	pMoniker.Release();
-	if (FAILED(hr))
+	if FAILED(hr = pMoniker->BindToObject(0, 0, IID_IBaseFilter, reinterpret_cast<void**>(&pFilter)))
 	{
-		//(g_log << "Could Not Create Filter: " << strFriendlyName).Write();
+		(log << "Could Not Create Filter: " << strFriendlyName << "\n").Write();
 		return hr;
 	}
 
 	return S_OK;
 }
 
+//////////////////////////////////////////////////////////////////////
+// DirectShowSystemDeviceEnumerator
+//////////////////////////////////////////////////////////////////////
+
 DirectShowSystemDeviceEnumerator::DirectShowSystemDeviceEnumerator(REFCLSID deviceClass)
 {
-	if (FAILED(m_pSysDevEnum.CoCreateInstance(CLSID_SystemDeviceEnum)))
+	if FAILED(m_pSysDevEnum.CoCreateInstance(CLSID_SystemDeviceEnum))
 	{
-		//(g_log << "Could not create system device enumerator").Write();
+		(log << "Could not create system device enumerator\n").Write();
 	}
 	else
 	{
-		if (FAILED(m_pSysDevEnum->CreateClassEnumerator(deviceClass, &m_pEnum, 0)))
+		if FAILED(m_pSysDevEnum->CreateClassEnumerator(deviceClass, &m_pEnum, 0))
 		{
-			//(g_log << "Could not create device class enumerator").Write();
+			(log << "Could not create device class enumerator\n").Write();
 			m_pSysDevEnum.Release();
 		}
 	}
@@ -122,29 +125,26 @@ HRESULT DirectShowSystemDeviceEnumerator::Next(DirectShowSystemDevice** ppDevice
 		return E_FAIL;
 
 	CComPtr <IBindCtx> pBindCtx;
-	if (FAILED(hr = CreateBindCtx(0, &pBindCtx)))
+	if FAILED(hr = CreateBindCtx(0, &pBindCtx))
 	{
-		pMoniker.Release();
-		//(g_log << "Could not create bind context").Write();
+		(log << "Could not create bind context\n").Write();
 		return hr;
 	}
 
 	CComPtr <IPropertyBag> pPropBag;
-	hr = pMoniker->BindToStorage(pBindCtx, 0, IID_IPropertyBag, (void**)&pPropBag);
-	if (FAILED(hr))
+	if FAILED(hr = pMoniker->BindToStorage(pBindCtx, 0, IID_IPropertyBag, reinterpret_cast<void**>(&pPropBag)))
 	{
-		pMoniker.Release();
-		pBindCtx.Release();
-		//(g_log << "Could not get property bag").Write();
+		(log << "Could not get property bag\n").Write();
 		return hr;
 	}
 
 
 	*ppDevice = new DirectShowSystemDevice();
+	(*ppDevice)->SetLogCallback(m_pLogCallback);
 
 	VARIANT varName;
 	VariantInit(&varName);
-	if (SUCCEEDED(hr = pPropBag->Read(L"FriendlyName", &varName, 0)))
+	if SUCCEEDED(hr = pPropBag->Read(L"FriendlyName", &varName, 0))
 	{
 		if (varName.vt == VT_BSTR)
 		{
@@ -152,35 +152,31 @@ HRESULT DirectShowSystemDeviceEnumerator::Next(DirectShowSystemDevice** ppDevice
 		}
 		else
 		{
-			//(g_log << "FriendlyName is not of type VT_BSTR. It's type " << varName.vt << ". Setting to blank string").Write();
+			(log << "FriendlyName is not of type VT_BSTR. It's type " << varName.vt << ". Setting to blank string\n").Write();
 			strCopy((*ppDevice)->strFriendlyName, L"");
 		}
 	}
 	else
 	{
-		//(g_log << "FriendlyName does not exist. Setting to blank string").Write();
+		(log << "FriendlyName does not exist. Setting to blank string\n").Write();
 		strCopy((*ppDevice)->strFriendlyName, L"");
 	}
 	VariantClear(&varName);
 	pPropBag.Release();
 
 	LPWSTR pDisplayName;
-	hr = pMoniker->GetDisplayName(pBindCtx, NULL, &pDisplayName);
+	if FAILED(hr = pMoniker->GetDisplayName(pBindCtx, NULL, &pDisplayName))
+	{
+		delete *ppDevice;
+		*ppDevice = NULL;
+		(log << "Could not get device path\n").Write();
+		return hr;
+	}
 	strCopy((*ppDevice)->strDevicePath, pDisplayName);
 
 	IMalloc* memAlloc = NULL;
 	CoGetMalloc(1, &memAlloc);
 	memAlloc->Free(pDisplayName);
-
-	pBindCtx.Release();
-	pMoniker.Release();
-	if (FAILED(hr))
-	{
-		delete *ppDevice;
-		*ppDevice = NULL;
-		//(g_log << "Could not get device path").Write();
-		return hr;
-	}
 
 	(*ppDevice)->bValid = TRUE;
 

@@ -32,7 +32,7 @@ public:
 	LogMessageWriter();
 	virtual ~LogMessageWriter();
 	void SetFilename(LPWSTR filename);
-	virtual void Write(LPSTR pStr);
+	virtual void Write(LPWSTR pStr);
 	virtual void Clear();
 private:
 	LPWSTR m_logFilename;

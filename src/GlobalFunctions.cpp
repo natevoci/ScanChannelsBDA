@@ -20,10 +20,9 @@
  *	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-//this is a file from DigitalWatch 2.
-
 #include "StdAfx.h"
 #include "GlobalFunctions.h"
+#include <math.h>
 
 void PStringCopy(char** destString, char* srcString)
 {
@@ -103,6 +102,30 @@ void GetCommandExe(LPWSTR pExe)
 	wcscpy(pExe, cmdLine);
 }
 
+long wcsToColor(LPWSTR str)
+{
+	long result = 0;
+	if (str[0] == '#')
+		str++;
+
+	int length = wcslen(str);
+	if (length <= 0)
+		return 0;
+		
+	for (int i=length-1 ; i>=0 ; i-- )
+	{
+		if ((str[i] >= '0') && (str[i] <= '9'))
+			result += ((str[i]-'0') << ((length-1-i)*4));
+		if ((str[i] >= 'A') && (str[i] <= 'F'))
+			result += ((str[i]-'A'+10) << ((length-1-i)*4));
+	}
+
+	if (length <= 6)
+		result = result | 0xFF000000;
+	
+	return result;
+}
+
 BOOL findchr(char character, LPCSTR strCharSet)
 {
 	int length = strlen(strCharSet);
@@ -120,7 +143,7 @@ BOOL isWhitespace(char character)
 			(character == '\t'));
 }
 
-void skipWhitespaces(LPSTR &str)
+void skipWhitespaces(LPCSTR &str)
 {
 	while (isWhitespace(str[0]))
 		str++;
@@ -134,7 +157,8 @@ LPSTR findEndOfTokenName(LPCSTR str)
 		if (((str[i] < 'A') || (str[i] > 'Z')) &&
 			((str[i] < 'a') || (str[i] > 'z')) &&
 			((str[i] < '0') || (str[i] > '9')) &&
-			(str[i] != '_')
+			(str[i] != '_') &&
+			(str[i] != '$')
 		   )
 		   return (LPSTR)&str[i];
 	}
@@ -159,7 +183,7 @@ BOOL isWhitespace(wchar_t character)
 			(character == '\t'));
 }
 
-void skipWhitespaces(LPWSTR &str)
+void skipWhitespaces(LPCWSTR &str)
 {
 	while (isWhitespace(str[0]))
 		str++;
@@ -173,7 +197,8 @@ LPWSTR findEndOfTokenName(LPCWSTR str)
 		if (((str[i] < 'A') || (str[i] > 'Z')) &&
 			((str[i] < 'a') || (str[i] > 'z')) &&
 			((str[i] < '0') || (str[i] > '9')) &&
-			(str[i] != '_')
+			(str[i] != '_') &&
+			(str[i] != '$')
 		   )
 		   return (LPWSTR)&str[i];
 	}
@@ -242,5 +267,43 @@ void strCopyA2W(LPWSTR &dest, LPCSTR src)
 void strCopyW2A(LPSTR &dest, LPCWSTR src)
 {
 	strCopyW2A(dest, src, -1);
+}
+
+void strCopy(LPSTR &dest, long value)
+{
+	if (dest)
+		delete[] dest;
+	BOOL bNegative = (value < 0);
+	value = abs(value);
+	long length = (long)log10(value) + (bNegative ? 2 : 1);
+	dest = new char[length + 1];
+
+	for ( int i=length-1 ; i>=0 ; i-- )
+	{
+		dest[i] = '0' + (value % 10);
+		value /= 10;
+	}
+	if (bNegative)
+		dest[0] = '-';
+	dest[length] = 0;
+}
+
+void strCopy(LPWSTR &dest, long value)
+{
+	if (dest)
+		delete[] dest;
+	BOOL bNegative = (value < 0);
+	value = abs(value);
+	long length = (long)log10(value) + (bNegative ? 2 : 1);
+	dest = new wchar_t[length + 1];
+
+	for ( int i=length-1 ; i>=0 ; i-- )
+	{
+		dest[i] = '0' + (value % 10);
+		value /= 10;
+	}
+	if (bNegative)
+		dest[0] = '-';
+	dest[length] = 0;
 }
 
