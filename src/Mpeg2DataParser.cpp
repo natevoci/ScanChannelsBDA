@@ -98,6 +98,7 @@ struct transponder {
 	struct list_head services;
 	int network_id;
 	int transport_stream_id;
+	int original_network_id;
 	enum fe_type type;
 	//struct dvb_frontend_parameters param;
 	enum polarisation polarisation;		/* only for DVB-S */
@@ -1008,9 +1009,9 @@ void Mpeg2DataParser::parse_nit (const unsigned char *buf, int section_length, i
 	buf += descriptors_loop_len + 4;
 
 	while (section_length > 6) {
-		int transport_stream_id = (buf[0] << 8) | buf[1];
-		struct transponder tn;
-		//struct transponder *t;
+		current_tp->network_id = network_id;
+		current_tp->transport_stream_id = (buf[0] << 8) | buf[1];
+		current_tp->original_network_id = (buf[2] << 8) | buf[3];
 
 		descriptors_loop_len = ((buf[4] & 0x0f) << 8) | buf[5];
 
@@ -1018,19 +1019,14 @@ void Mpeg2DataParser::parse_nit (const unsigned char *buf, int section_length, i
 		{
 			if (verbose) printf("section too short: transport_stream_id == 0x%04x, "
 								"section_length == %i, descriptors_loop_len == %i\n",
-								transport_stream_id, section_length,
+								current_tp->transport_stream_id, section_length,
 								descriptors_loop_len);
 			break;
 		}
 
-		if (verbose) printf("  transport_stream_id 0x%04x\n", transport_stream_id);
+		if (verbose) printf("  transport_stream_id 0x%04x\n", current_tp->transport_stream_id);
 
-		memset(&tn, 0, sizeof(tn));
-		//tn.type = -1;
-		tn.network_id = network_id;
-		tn.transport_stream_id = transport_stream_id;
-
-		parse_descriptorsNIT (buf + 6, descriptors_loop_len, &tn);
+		parse_descriptorsNIT (buf + 6, descriptors_loop_len, current_tp);
 
 /*		if (tn.type == fe_info.type) {
 			// only add if develivery_descriptor matches FE type

@@ -2,13 +2,13 @@ ScanChannelsBDA ToDo list
 
 + detect demod device between tuner and capture device
 + Change DisplayName in FilterGraphTools to DevicePath
++ Joey's mod to pick up ONID http://forums.dvbowners.com/index.php?showtopic=2302&view=findpost&p=21282
 - Install DxSDK 9.0c
 - keep a list of transponders so that the correct transponder is used for services
 - Include Teletext PIDs after the channel number
 - Use manually entered frequency if doesn't match by +-3500
 - Put an IsAlreadyScanning check in ServiceChanged to stop multiple events causing
   two scans to run side by side.
-- Joey's mod to pick up ONID http://forums.dvbowners.com/index.php?showtopic=2302&view=findpost&p=21282
 - Joey's try catch mod http://forums.dvbowners.com/index.php?showtopic=2302&view=findpost&p=21312
 - Implement proper list of streams (rather than having a list of mp2 streams and only one video and ac3 stream)
 - replace linked lists with vectors
