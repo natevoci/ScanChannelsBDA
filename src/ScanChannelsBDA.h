@@ -39,6 +39,7 @@ public:
 	
 	HRESULT CreateGraph();
 	HRESULT	BuildGraph();
+	HRESULT	ConnectGraph();
 	HRESULT	LockChannel(long lFrequency, long lBandwidth, BOOL &locked, BOOL &present, long &strength, long &quality);
 	HRESULT	newRequest(long lFrequency, long lBandwidth, ITuneRequest* &pExTuneRequest);
 	HRESULT	InitialiseTuningSpace();
@@ -72,7 +73,10 @@ public:
 	HRESULT createConnectionPoint();
 
 
-private:	
+private:
+	HRESULT SetupGraph();
+	void DestroyGraph();
+
 	HRESULT scanChannel(long channelNumber, long frequency, long bandwidth);
 	HRESULT scanChannels();
 

@@ -713,7 +713,7 @@ HRESULT DisconnectAllPins(IGraphBuilder* piGraphBuilder)
 {
 	if (piGraphBuilder == NULL)
 		return E_FAIL;
-	HRESULT hr ;
+	HRESULT hr;
 	ULONG refCount;
 	IEnumFilters * piEnumFilters = NULL;
 	hr = piGraphBuilder->EnumFilters(&piEnumFilters);
@@ -788,10 +788,10 @@ HRESULT RemoveAllFilters(IGraphBuilder* piGraphBuilder)
 	{
 		piGraphBuilder->RemoveFilter(piFilterArray[i]);
 	}
-	for ( i=0 ; i<100 && (piFilterArray[i] != NULL) ; i++ )
+	/*for ( i=0 ; i<100 && (piFilterArray[i] != NULL) ; i++ )
 	{
 		HelperFullRelease(piFilterArray[i]);
-	}
+	}*/
 
 	return hr;
 }
@@ -904,6 +904,7 @@ void RemoveFromRot(DWORD pdwRegister)
         pROT->Revoke(pdwRegister);
         pROT->Release();
     }
+	pdwRegister = 0;
 }
 
 

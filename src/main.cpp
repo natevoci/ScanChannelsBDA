@@ -67,6 +67,7 @@ HRESULT ShowMenu()
 
 
 	BDAChannelScan* cBDAChannelScan = new BDAChannelScan();
+	cBDAChannelScan->AddRef();
 
 	if (FAILED(hr = cBDAChannelScan->selectCard()))
 	{
@@ -74,30 +75,6 @@ HRESULT ShowMenu()
 	}
 	if (hr != S_OK)
 		return 0;
-	
-	if (FAILED(hr = cBDAChannelScan->CreateGraph()))
-	{
-		cout << "Failed to create graph." << endl;
-		return 1;
-	}
-	
-	if (FAILED(hr = cBDAChannelScan->BuildGraph()))
-	{
-		cout << "Failed to add filters to graph." << endl;
-		return 1;
-	}
-
-	if (FAILED(hr = cBDAChannelScan->createConnectionPoint()))
-	{
-		cout << "Failed to add connection point to TIF." << endl;
-		return 1;
-	}
-
-	if (cBDAChannelScan->StartGraph() == FALSE)
-	{
-		cout << "Failed to start the graph" << endl;
-		return 1;
-	}
 
 	bExit = FALSE;
 	while (bExit == FALSE)

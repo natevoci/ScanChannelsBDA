@@ -44,6 +44,8 @@ BDAChannelScan::BDAChannelScan()
 
 	m_pBDACard = NULL;
 
+	m_rotEntry = 0;
+
 	m_Count = 0;
 	m_bScanning = FALSE;
 	m_bVerbose = FALSE;
@@ -51,24 +53,6 @@ BDAChannelScan::BDAChannelScan()
 
 BDAChannelScan::~BDAChannelScan()
 {
-	RemoveFromRot(m_rotEntry);
-	m_piConnectionPoint->Unadvise(m_dwAdviseCookie); 
-
-	m_pBDANetworkProvider.Release();
-	m_pBDATuner.Release();
-	m_pBDADemod.Release();
-	m_pBDACapture.Release();
-	m_pBDAMpeg2Demux.Release();
-	m_pBDATIF.Release();
-	m_pBDASecTab.Release();
-	
-	m_pTuningSpace.Release();
-	m_piGuideData.Release();
-	m_piConnectionPoint.Release();
-	m_piGraphBuilder.Release();
-	m_piMediaControl.Release();
-	m_piTuner.Release();
-
 	CoUninitialize();
 }
 
@@ -152,9 +136,81 @@ void BDAChannelScan::AddNetwork(long freq, long band)
 	}
 }
 
+HRESULT BDAChannelScan::SetupGraph()
+{
+	HRESULT hr = S_OK;
+
+	if (FAILED(hr = CreateGraph()))
+	{
+		cout << "Failed to create graph." << endl;
+		return hr;
+	}
+	
+	if (FAILED(hr = BuildGraph()))
+	{
+		cout << "Failed to add filters to graph." << endl;
+		return hr;
+	}
+
+	if (FAILED(hr = ConnectGraph()))
+	{
+		cout << "Failed to connect filters in graph." << endl;
+		return hr;
+	}
+
+	if (FAILED(hr = createConnectionPoint()))
+	{
+		cout << "Failed to add connection point to TIF." << endl;
+		return hr;
+	}
+
+	if (StartGraph() == FALSE)
+	{
+		cout << "Failed to start the graph" << endl;
+		return hr;
+	}
+
+	return hr;
+}
+
+void BDAChannelScan::DestroyGraph()
+{
+	StopGraph();
+
+	if (m_piConnectionPoint)
+		m_piConnectionPoint->Unadvise(m_dwAdviseCookie); 
+
+	m_piConnectionPoint.Release();
+	m_piGuideData.Release();
+
+	DisconnectAllPins(m_piGraphBuilder);
+
+	m_pTuningSpace.Release();
+	m_piTuner.Release();
+	RemoveAllFilters(m_piGraphBuilder);
+
+	//m_pBDANetworkProvider.Release();	//causes an exception
+	m_pBDATuner.Release();
+	m_pBDADemod.Release();
+	m_pBDACapture.Release();
+	m_pBDAMpeg2Demux.Release();
+	m_pBDATIF.Release();
+	m_pBDASecTab.Release();
+
+
+	if (m_rotEntry)
+		RemoveFromRot(m_rotEntry);
+	m_piMediaControl.Release();
+	m_piGraphBuilder.Release();
+
+}
+
 HRESULT BDAChannelScan::scanNetworks()
 {
 	HRESULT hr = S_OK;
+
+	if (FAILED(hr = SetupGraph()))
+		return hr;
 
 	for (int count=0 ; count<m_Count ; count++ )
 	{
@@ -164,6 +220,8 @@ HRESULT BDAChannelScan::scanNetworks()
 		if (hr == E_FAIL)
 			return 1;
 	}
+
+	DestroyGraph();
 
 	return hr;
 }
@@ -231,6 +289,9 @@ HRESULT BDAChannelScan::scanAll()
 		816500   // 69
 	};
 
+	if (FAILED(hr = SetupGraph()))
+		return hr;
+
 	int chNum = 0;
 	for (int count=0 ; count<50 ; count++ )
 	{
@@ -271,10 +332,55 @@ HRESULT BDAChannelScan::scanAll()
 		chNum--;
 	}
 
+	DestroyGraph();
 
 	return hr;
 }
 
+HRESULT BDAChannelScan::SignalStatistics(long frequency, long bandwidth)
+{
+	HRESULT hr;
+
+	if (FAILED(hr = SetupGraph()))
+		return hr;
+
+	BOOL bLocked = FALSE;
+	BOOL bPresent = FALSE;
+	long nStrength = 0;
+	long nQuality = 0;
+
+	BOOL bKeyboardEvent = FALSE;
+
+	do
+	{
+		hr = LockChannel(frequency, bandwidth, bLocked, bPresent, nStrength, nQuality);
+
+		switch (hr)
+		{
+			case S_OK:
+				printf("# locked %ld, %ld signal locked = %s present = %s strength = %ld quality = %ld\n",
+						frequency, bandwidth,
+						bLocked ? "Y" : "N", bPresent ? "Y" : "N",
+						nStrength, nQuality);
+				break;
+
+			default:
+				printf("# no lock %ld, %ld signal  locked = %s present = %s strength = %ld quality = %ld\n",
+						frequency, bandwidth,
+						bLocked ? "Y" : "N", bPresent ? "Y" : "N",
+						nStrength, nQuality);
+				break;
+		}
+
+		if (::WaitForSingleObject(::GetStdHandle(STD_INPUT_HANDLE), 100) == WAIT_OBJECT_0)
+			bKeyboardEvent = TRUE;
+
+	} while (!bKeyboardEvent);
+
+	DestroyGraph();
+
+	return hr;
+}
 
 HRESULT	BDAChannelScan::CreateGraph()
 {
@@ -313,7 +419,7 @@ HRESULT	BDAChannelScan::BuildGraph()
 	if (FAILED(hr = this->InitialiseTuningSpace()))
 	{
 		cout << "Failed to initialise the Tune Request" << endl;
-		return FALSE;
+		return E_FAIL;
 	}
 
 	// Get the current Network Type clsid
@@ -333,7 +439,7 @@ HRESULT	BDAChannelScan::BuildGraph()
 	if (FAILED(hr = AddFilter(m_piGraphBuilder, CLSIDNetworkType, m_pBDANetworkProvider.p, L"Network Provider")))
 	{
 		cout << "Failed to add Network Provider to the graph" << endl;
-		return FALSE;
+		return E_FAIL;
 	}
 
 	//Create TuneRequest
@@ -341,7 +447,7 @@ HRESULT	BDAChannelScan::BuildGraph()
 	if (FAILED(hr = this->newRequest(frequency, bandwidth, pTuneRequest.p)))
 	{
 		cout << "Failed to create the Tune Request." << endl;
-		return FALSE;
+		return E_FAIL;
 	}
 
 	//Apply TuneRequest
@@ -369,7 +475,7 @@ HRESULT	BDAChannelScan::BuildGraph()
 	if (FAILED(hr = AddFilterByDevicePath(m_piGraphBuilder, m_pBDATuner.p, m_pBDACard->tunerDevice.strDevicePath, m_pBDACard->tunerDevice.strFriendlyName)))
 	{
 		cout << "Cannot load Tuner Device" << endl;
-		return FALSE;
+		return E_FAIL;
 	}
 
 	if (m_pBDACard->demodDevice.bValid)
@@ -377,7 +483,7 @@ HRESULT	BDAChannelScan::BuildGraph()
 		if (FAILED(hr = AddFilterByDevicePath(m_piGraphBuilder, m_pBDADemod.p, m_pBDACard->demodDevice.strDevicePath, m_pBDACard->demodDevice.strFriendlyName)))
 		{
 			cout << "Cannot load Demod Device" << endl;
-			return FALSE;
+			return E_FAIL;
 		}
 	}
 
@@ -386,28 +492,35 @@ HRESULT	BDAChannelScan::BuildGraph()
 		if (FAILED(hr = AddFilterByDevicePath(m_piGraphBuilder, m_pBDACapture.p, m_pBDACard->captureDevice.strDevicePath, m_pBDACard->captureDevice.strFriendlyName)))
 		{
 			cout << "Cannot load Capture Device" << endl;
-			return FALSE;
+			return E_FAIL;
 		}
 	}
 
 	if (FAILED(hr = AddFilter(m_piGraphBuilder, CLSID_MPEG2Demultiplexer, m_pBDAMpeg2Demux.p, L"BDA MPEG-2 Demultiplexer")))
 	{
 		cout << "Failed to add BDA MPEG-2 Demultiplexer to the graph" << endl;
-		return FALSE;
+		return E_FAIL;
 	}
 
 	if (FAILED(hr = AddFilterByName(m_piGraphBuilder, m_pBDATIF.p, KSCATEGORY_BDA_TRANSPORT_INFORMATION, L"BDA MPEG2 Transport Information Filter")))
 	{
 		cout << "Cannot load TIF" << endl;
-		return FALSE;
+		return E_FAIL;
 	}
 
 	if (FAILED(hr = AddFilterByName(m_piGraphBuilder, m_pBDASecTab.p, KSCATEGORY_BDA_TRANSPORT_INFORMATION, L"MPEG-2 Sections and Tables")))
 	{
 		cout << "Cannot load MPEG-2 Sections and Tables" << endl;
-		return FALSE;
+		return E_FAIL;
 	}
 
+	return hr;
+}
+
+
+HRESULT	BDAChannelScan::ConnectGraph()
+{
+	HRESULT hr = S_OK;
 
     if (FAILED(hr = ConnectFilters(m_piGraphBuilder, m_pBDANetworkProvider, m_pBDATuner)))
 	{
@@ -865,7 +978,8 @@ BOOL BDAChannelScan::StartGraph()
 
 BOOL BDAChannelScan::StopGraph()
 {
-	m_piMediaControl->Stop();
+	if (m_piMediaControl)
+		m_piMediaControl->Stop();
 
 	return TRUE;
 }
@@ -908,10 +1022,6 @@ HRESULT BDAChannelScan::scanChannel(long channelNumber, long frequency, long ban
 			break;
 
 		default:
-			printf("# no lock %ld, %ld signal  locked = %s present = %s strength = %ld quality = %ld\n",
-					frequency, bandwidth,
-					bLocked ? "Y" : "N", bPresent ? "Y" : "N",
-					nStrength, nQuality);
 			break;
 	}
 
@@ -947,41 +1057,3 @@ HRESULT BDAChannelScan::scanChannels()
 	return hr;
 }
 
-HRESULT BDAChannelScan::SignalStatistics(long frequency, long bandwidth)
-{
-	HRESULT hr;
-	BOOL bLocked = FALSE;
-	BOOL bPresent = FALSE;
-	long nStrength = 0;
-	long nQuality = 0;
-
-	BOOL bKeyboardEvent = FALSE;
-
-	do
-	{
-		hr = LockChannel(frequency, bandwidth, bLocked, bPresent, nStrength, nQuality);
-
-		switch (hr)
-		{
-			case S_OK:
-				printf("# locked %ld, %ld signal locked = %s present = %s strength = %ld quality = %ld\n",
-						frequency, bandwidth,
-						bLocked ? "Y" : "N", bPresent ? "Y" : "N",
-						nStrength, nQuality);
-				break;
-
-			default:
-				printf("# no lock %ld, %ld signal  locked = %s present = %s strength = %ld quality = %ld\n",
-						frequency, bandwidth,
-						bLocked ? "Y" : "N", bPresent ? "Y" : "N",
-						nStrength, nQuality);
-				break;
-		}
-
-		if (::WaitForSingleObject(::GetStdHandle(STD_INPUT_HANDLE), 100) == WAIT_OBJECT_0)
-			bKeyboardEvent = TRUE;
-
-	} while (!bKeyboardEvent);
-
-	return hr;
-}
