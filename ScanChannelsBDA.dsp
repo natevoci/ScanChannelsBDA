@@ -161,10 +161,6 @@ SOURCE=.\src\GlobalFunctions.h
 # End Source File
 # Begin Source File
 
-SOURCE=.\src\list.h
-# End Source File
-# Begin Source File
-
 SOURCE=.\src\Mpeg2DataParser.h
 # End Source File
 # Begin Source File
