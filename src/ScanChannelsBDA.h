@@ -103,6 +103,7 @@ private:
 	BOOL m_bScheduleEntryChanged;
 
 	HANDLE m_hGuideDataChangedEvent;
+	HANDLE m_hServiceChangedMutex;
 
 	BOOL m_bScanning;
 

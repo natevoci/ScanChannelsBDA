@@ -39,6 +39,7 @@ BDAChannelScan::BDAChannelScan()
 	m_bScheduleEntryChanged = FALSE;
 
 	m_hGuideDataChangedEvent = CreateEvent(NULL, TRUE, FALSE, "GuideDataChangedEvent");
+	m_hServiceChangedMutex = CreateMutex(NULL, FALSE, NULL);
 
 	m_pBDACard = NULL;
 
@@ -774,8 +775,21 @@ STDMETHODIMP BDAChannelScan::QueryInterface(REFIID iid, void **ppv)
 
 STDMETHODIMP BDAChannelScan::ServiceChanged(VARIANT varServiceDescriptionID)
 {
-	if (m_bScanning)
-		m_mpeg2parser.StartMpeg2DataScan();
+	DWORD dwWaitResult; 
+    dwWaitResult = WaitForSingleObject(m_hServiceChangedMutex, 1000);
+	if (dwWaitResult == WAIT_OBJECT_0)
+	{
+		try
+		{
+			if (m_bScanning)
+				m_mpeg2parser.StartMpeg2DataScan();
+		}
+		catch(...)
+		{
+		} 
+		ReleaseMutex(m_hServiceChangedMutex);
+	}
+
 	return S_OK;
 }
 
