@@ -25,10 +25,10 @@
 
 #include "stdafx.h"
 #include "Mpeg2DataParser.h"
-#include "list.h"
 
 #include <process.h>
 #include <math.h>
+#include <vector>
 
 enum table_type {
 	PAT,
@@ -49,7 +49,6 @@ enum running_mode {
 
 struct section_buf
 {
-	struct list_head list;
 	unsigned int run_once  : 1;
 	unsigned int segmented : 1;	/* segmented by table_id_ext */
 	int fd;
@@ -70,7 +69,6 @@ struct section_buf
 
 struct service
 {
-	struct list_head list;
 	int transport_stream_id;
 	int service_id;
 	unsigned char *provider_name;
@@ -94,8 +92,7 @@ struct service
 };
 
 struct transponder {
-	struct list_head list;
-	struct list_head services;
+	vector<service *> services;
 	int network_id;
 	int transport_stream_id;
 	int original_network_id;
@@ -129,8 +126,8 @@ static void set_bit (__int8 *bitfield, int bit)
 
 
 
-static LIST_HEAD(running_filters);
-static LIST_HEAD(waiting_filters);
+vector<section_buf *> running_filters;
+vector<section_buf *> waiting_filters;
 #define MAX_RUNNING 32
 static struct section_buf* poll_section_bufs[MAX_RUNNING];
 
@@ -216,8 +213,6 @@ void Mpeg2DataParser::StartMpeg2DataScanThread()
 	try
 	{
 		current_tp = (struct transponder *)calloc(1, sizeof(*current_tp));
-		INIT_LIST_HEAD(&current_tp->list);
-		INIT_LIST_HEAD(&current_tp->services);
 
 		if (m_piIMpeg2Data != NULL) 
 		{
@@ -236,17 +231,17 @@ void Mpeg2DataParser::StartMpeg2DataScanThread()
 			do
 			{
 				ReadFilters ();
-			} while (!(list_empty(&running_filters) && list_empty(&waiting_filters)));
+			} while ((running_filters.size() > 0) || (waiting_filters.size()));
 
-			struct list_head *pos;
 			struct service *s;
 
 			printf("\nNetwork_%i(\"%s\", %i, %i, 1)\n", m_networkNumber, current_tp->network_name, current_tp->frequency, current_tp->bandwidth);
 
 			int i=1;
-			list_for_each(pos, &current_tp->services)
+			vector<service *>::iterator it = current_tp->services.begin();
+			for ( ; it != current_tp->services.end() ; it++ )
 			{
-				s = list_entry(pos, struct service, list);
+				s = *it;
 
 				for (int audio = 0 ; audio <= s->audio_num ; audio++ )
 				{
@@ -325,26 +320,22 @@ void Mpeg2DataParser::SetupFilter (struct section_buf* s, int pid, int tid, int 
 
 	s->table_id_ext = -1;
 	s->section_version_number = -1;
-
-	INIT_LIST_HEAD (&s->list);
 }
 
 void Mpeg2DataParser::AddFilter (struct section_buf *s)
 {
-//	printf("add filter pid 0x%04x\n", s->pid);
-//	if (start_filter (s))
-		list_add_tail (&s->list, &waiting_filters);
+	waiting_filters.push_back(s);
 }
 
 void Mpeg2DataParser::ReadFilters(void)
 {
 	struct section_buf *s;
 
-	while (!list_empty(&waiting_filters))
+	while (waiting_filters.size())
 	{
-		s = list_entry (waiting_filters.next, struct section_buf, list);
+		s = waiting_filters.front();
 		ReadSection(s);
-		list_del(&s->list);
+		waiting_filters.erase(waiting_filters.begin());
 		//free (s);
 	}
 }
@@ -409,19 +400,19 @@ void Mpeg2DataParser::ReadSection(struct section_buf *s)
 struct service *Mpeg2DataParser::alloc_service(struct transponder *tp, int service_id)
 {
 	struct service *s = (struct service *)calloc(1, sizeof(*s));
-	INIT_LIST_HEAD(&s->list);
 	s->service_id = service_id;
-	list_add_tail(&s->list, &tp->services);
+	tp->services.push_back(s);
 	return s;
 }
 
 struct service *Mpeg2DataParser::find_service(struct transponder *tp, int service_id)
 {
-	struct list_head *pos;
 	struct service *s;
 
-	list_for_each(pos, &tp->services) {
-		s = list_entry(pos, struct service, list);
+	vector<service *>::iterator it = tp->services.begin();
+	for ( ; it != tp->services.end() ; it++ )
+	{
+		s = *it;
 		if (s->service_id == service_id)
 			return s;
 	}
@@ -608,8 +599,6 @@ void Mpeg2DataParser::parse_frequency_list_descriptor (const unsigned char *buf)
 void Mpeg2DataParser::parse_terrestrial_uk_channel_number (const unsigned char *buf)
 {
 	int i, n, channel_num, service_id;
-	//struct list_head *p1;
-	struct list_head *p2;
 	//struct transponder *t;
 	struct service *s;
 
@@ -624,15 +613,16 @@ void Mpeg2DataParser::parse_terrestrial_uk_channel_number (const unsigned char *
 		service_id = (buf[0]<<8)|(buf[1]&0xff);
 		channel_num = (buf[2]&0x03<<8)|(buf[3]&0xff);
 		if (verbose) printf("    Service ID 0x%x has channel number %d\n", service_id, channel_num);
-//		list_for_each(p1, &scanned_transponders) {
-//			t = list_entry(p1, struct transponder, list);
-			list_for_each(p2, &current_tp->services)
-			{
-				s = list_entry(p2, struct service, list);
-				if (s->service_id == service_id)
-					s->channel_num = channel_num;
-			}
-//		}
+
+		//Might need to loop here for other transponders
+		vector<service *>::iterator it = current_tp->services.begin();
+		for ( ; it != current_tp->services.end() ; it++ )
+		{
+			s = *it;
+			if (s->service_id == service_id)
+				s->channel_num = channel_num;
+		}
+
 		buf += 4;
 	}
 }
