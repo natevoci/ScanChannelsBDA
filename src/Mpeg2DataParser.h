@@ -124,6 +124,7 @@ public:
 
 	void SetNetworkNumber(int network);
 	void SetFilter(CComPtr <IBaseFilter> pBDASecTab);
+	void ReleaseFilter();
 
 	void StartMpeg2DataScan();
 	void StartMpeg2DataScanThread();

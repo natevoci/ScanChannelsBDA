@@ -860,6 +860,8 @@ HRESULT BDAChannelScan::scanChannel(long channelNumber, long frequency, long ban
 			break;
 	}
 
+	m_mpeg2parser.ReleaseFilter();
+
 	m_bScanning = FALSE;
 	return hr;
 }
