@@ -53,6 +53,7 @@ Mpeg2DataParser::Mpeg2DataParser()
 
 	verbose = FALSE;
 	m_bThreadStarted = FALSE;
+	m_bActivity = FALSE;
 }
 
 Mpeg2DataParser::~Mpeg2DataParser()
@@ -107,6 +108,7 @@ void Mpeg2DataParser::Reset()
 	}
 
 	m_bThreadStarted = FALSE;
+	m_bActivity = FALSE;
 	ResetEvent(m_hScanningDoneEvent);
 }
 
@@ -137,9 +139,22 @@ void Mpeg2DataParser::DeleteService(struct service *s)
 	free(s);
 }
 
-void Mpeg2DataParser::WaitForScanToFinish(DWORD timeout)
+DWORD Mpeg2DataParser::WaitForScanToFinish()
 {
-	WaitForSingleObject(m_hScanningDoneEvent, timeout);
+	DWORD result;
+	do
+	{
+		result = WaitForSingleObject(m_hScanningDoneEvent, 60000);
+		if (result == WAIT_TIMEOUT)
+		{
+			if (m_bActivity)
+			{
+				m_bActivity = FALSE;
+				continue;
+			}
+		}
+	} while (FALSE);
+	return result;
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -226,6 +241,7 @@ void Mpeg2DataParser::ReadFilters(void)
 
 	while (waiting_filters.size())
 	{
+		m_bActivity = TRUE;
 		s = waiting_filters.front();
 		ReadSection(s);
 		waiting_filters.erase(waiting_filters.begin());

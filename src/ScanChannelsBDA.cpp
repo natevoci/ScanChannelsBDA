@@ -479,7 +479,7 @@ HRESULT	BDAChannelScan::BuildGraph()
 	return hr;
 }
 
-HRESULT	BDAChannelScan::LockChannel(long lFrequency, long lBandwidth, long &strength, long &quality)
+HRESULT	BDAChannelScan::LockChannel(long lFrequency, long lBandwidth, BOOL &locked, BOOL &present, long &strength, long &quality)
 {
 	HRESULT hr = S_OK;
 	CComPtr <ITuneRequest> piTuneRequest;
@@ -520,7 +520,7 @@ HRESULT	BDAChannelScan::LockChannel(long lFrequency, long lBandwidth, long &stre
 
 		long longVal;
 		longVal = strength = quality = 0;
-		BYTE byteVal, locked, present;
+		BYTE byteVal;
 		byteVal = locked = present = 0;
 
 		if (FAILED(hr = bdaNetTop->GetNodeTypes(&NodeTypes, 32, NodeType)))
@@ -570,7 +570,7 @@ HRESULT	BDAChannelScan::LockChannel(long lFrequency, long lBandwidth, long &stre
 
 		bdaNetTop.Release();
 		
-		if ((locked>0) || (quality>0))
+		if ((locked>0) || (present>0))
 		{
 			return S_OK;
 		}
@@ -840,23 +840,39 @@ HRESULT BDAChannelScan::scanChannel(long channelNumber, long frequency, long ban
 	m_mpeg2parser.SetVerbose(m_bVerbose);
 	m_bScanning = TRUE;
 
+	BOOL bLocked = FALSE;
+	BOOL bPresent = FALSE;
 	long nStrength = 0;
 	long nQuality = 0;
 
-	HRESULT hr = LockChannel(frequency, bandwidth, nStrength, nQuality);
+	HRESULT hr = LockChannel(frequency, bandwidth, bLocked, bPresent, nStrength, nQuality);
 
 	switch (hr)
 	{
 		case S_OK:
-			printf("# locked %ld, %ld signal strength = %ld quality = %ld\n",
-					frequency, bandwidth, nStrength, nQuality);
-			m_mpeg2parser.WaitForScanToFinish(INFINITE);
-			m_mpeg2parser.PrintDigitalWatchChannelsIni();
+			printf("# locked %ld, %ld signal locked = %s present = %s strength = %ld quality = %ld\n",
+					frequency, bandwidth,
+					bLocked ? "Y" : "N", bPresent ? "Y" : "N",
+					nStrength, nQuality);
+			switch (m_mpeg2parser.WaitForScanToFinish())
+			{
+			case WAIT_OBJECT_0:
+				m_mpeg2parser.PrintDigitalWatchChannelsIni();
+				break;
+			case WAIT_TIMEOUT:
+				printf("# scan timed out\n");
+				break;
+			default:
+				printf("# scan failed\n");
+				break;
+			};
 			break;
 
 		default:
-			printf("# no lock %ld, %ld signal strength = %ld quality = %ld\n",
-					frequency, bandwidth, nStrength, nQuality);
+			printf("# no lock %ld, %ld signal  locked = %s present = %s strength = %ld quality = %ld\n",
+					frequency, bandwidth,
+					bLocked ? "Y" : "N", bPresent ? "Y" : "N",
+					nStrength, nQuality);
 			break;
 	}
 

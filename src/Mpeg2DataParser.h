@@ -130,7 +130,7 @@ public:
 	void StartMpeg2DataScanThread();
 
 	void Reset();
-	void WaitForScanToFinish(DWORD timeout);
+	DWORD WaitForScanToFinish();
 
 	void PrintDigitalWatchChannelsIni();
 
@@ -187,6 +187,7 @@ private:
 
 	BOOL verbose;
 	BOOL m_bThreadStarted;
+	BOOL m_bActivity;
 
 	struct transponder *  current_tp;
 	vector<transponder *> transponders;
