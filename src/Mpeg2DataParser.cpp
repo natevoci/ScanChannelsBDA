@@ -144,16 +144,8 @@ DWORD Mpeg2DataParser::WaitForScanToFinish()
 	DWORD result;
 	do
 	{
-		result = WaitForSingleObject(m_hScanningDoneEvent, 60000);
-		if (result == WAIT_TIMEOUT)
-		{
-			if (m_bActivity)
-			{
-				m_bActivity = FALSE;
-				continue;
-			}
-		}
-	} while (FALSE);
+		result = WaitForSingleObject(m_hScanningDoneEvent, 15000);
+	} while ((result == WAIT_TIMEOUT) && (m_bActivity));
 	return result;
 }
 
@@ -180,6 +172,7 @@ void Mpeg2DataParser::StartMpeg2DataScanThread()
 {
 	HRESULT hr = S_OK;
 
+	m_bActivity = TRUE;
 	try
 	{
 		if (m_piIMpeg2Data != NULL) 
@@ -206,6 +199,7 @@ void Mpeg2DataParser::StartMpeg2DataScanThread()
 		printf("# Unhandled exception in Mpeg2DataParser::StartMpeg2DataScanThread()\n");
 	}
 
+	m_bActivity = FALSE;
 	SetEvent(m_hScanningDoneEvent);
 } 
 
@@ -241,7 +235,6 @@ void Mpeg2DataParser::ReadFilters(void)
 
 	while (waiting_filters.size())
 	{
-		m_bActivity = TRUE;
 		s = waiting_filters.front();
 		ReadSection(s);
 		waiting_filters.erase(waiting_filters.begin());
