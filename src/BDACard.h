@@ -36,9 +36,19 @@ public:
 	DirectShowSystemDevice demodDevice;
 	DirectShowSystemDevice captureDevice;
 
+	HRESULT AddFilters(IGraphBuilder* piGraphBuilder);
+	HRESULT Connect(IGraphBuilder* piGraphBuilder, IBaseFilter* pSource);
+	HRESULT GetCapturePin(IPin** pCapturePin);
+
 	BOOL bActive;
 	BOOL bNew;
 	BOOL bDetected;
+
+	CComPtr <IBaseFilter> m_pBDATuner;
+	CComPtr <IBaseFilter> m_pBDADemod;
+	CComPtr <IBaseFilter> m_pBDACapture;
+
+	CComPtr <IPin> m_pCapturePin;
 };
 
 #endif

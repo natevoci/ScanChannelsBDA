@@ -43,6 +43,7 @@ public:
 	HRESULT	BuildGraph();
 	HRESULT	ConnectGraph();
 	HRESULT	LockChannel(long lFrequency, long lBandwidth, BOOL &locked, BOOL &present, long &strength, long &quality);
+	HRESULT GetSignalStatistics(BOOL &locked, BOOL &present, long &strength, long &quality);
 
 	HRESULT selectCard();
 	void AddNetwork(long freq, long band);
@@ -79,9 +80,7 @@ private:
 	HRESULT scanChannel(long channelNumber, long frequency, long bandwidth);
 
 	CComPtr <IBaseFilter> m_pBDANetworkProvider;
-	CComPtr <IBaseFilter> m_pBDATuner;
-	CComPtr <IBaseFilter> m_pBDADemod;
-	CComPtr <IBaseFilter> m_pBDACapture;
+
 	CComPtr <IBaseFilter> m_pBDAMpeg2Demux;
 	CComPtr <IBaseFilter> m_pBDATIF;
 	CComPtr <IBaseFilter> m_pBDASecTab;

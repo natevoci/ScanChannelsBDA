@@ -193,9 +193,6 @@ void BDAChannelScan::DestroyGraph()
 	RemoveAllFilters(m_piGraphBuilder);
 
 	//m_pBDANetworkProvider.Release();	//causes an exception
-	m_pBDATuner.Release();
-	m_pBDADemod.Release();
-	m_pBDACapture.Release();
 	m_pBDAMpeg2Demux.Release();
 	m_pBDATIF.Release();
 	m_pBDASecTab.Release();
@@ -476,28 +473,12 @@ HRESULT	BDAChannelScan::BuildGraph()
 	}
 
 	//We can now add the rest of the source filters
+
+	if (FAILED(hr = m_pBDACard->AddFilters(m_piGraphBuilder)))
+	{
+		return hr;
+	}
 	
-	if (FAILED(hr = AddFilterByDevicePath(m_piGraphBuilder, m_pBDATuner.p, m_pBDACard->tunerDevice.strDevicePath, m_pBDACard->tunerDevice.strFriendlyName)))
-	{
-		return (g_log << "Cannot load Tuner Device\n").Show(hr);
-	}
-
-	if (m_pBDACard->demodDevice.bValid)
-	{
-		if (FAILED(hr = AddFilterByDevicePath(m_piGraphBuilder, m_pBDADemod.p, m_pBDACard->demodDevice.strDevicePath, m_pBDACard->demodDevice.strFriendlyName)))
-		{
-			return (g_log << "Cannot load Demod Device\n").Show(hr);
-		}
-	}
-
-	if (m_pBDACard->captureDevice.bValid)
-	{
-		if (FAILED(hr = AddFilterByDevicePath(m_piGraphBuilder, m_pBDACapture.p, m_pBDACard->captureDevice.strDevicePath, m_pBDACard->captureDevice.strFriendlyName)))
-		{
-			return (g_log << "Cannot load Capture Device\n").Show(hr);
-		}
-	}
-
 	if (FAILED(hr = AddFilter(m_piGraphBuilder, CLSID_MPEG2Demultiplexer, m_pBDAMpeg2Demux.p, L"BDA MPEG-2 Demultiplexer")))
 	{
 		return (g_log << "Failed to add BDA MPEG-2 Demultiplexer to the graph\n").Show(hr);
@@ -521,72 +502,10 @@ HRESULT	BDAChannelScan::ConnectGraph()
 {
 	HRESULT hr = S_OK;
 
-    if (FAILED(hr = ConnectFilters(m_piGraphBuilder, m_pBDANetworkProvider, m_pBDATuner)))
-	{
-		return (g_log << "Failed to connect Network Provider to Tuner Filter\n").Show(hr);
-	}
+	m_pBDACard->Connect(m_piGraphBuilder, m_pBDANetworkProvider);
 
 	CComPtr <IPin> pCapturePin;
-
-	if (m_pBDACard->captureDevice.bValid)
-	{
-		if (m_pBDACard->demodDevice.bValid)
-		{
-			if (FAILED(hr = ConnectFilters(m_piGraphBuilder, m_pBDATuner, m_pBDADemod)))
-			{
-				return (g_log << "Failed to connect Tuner Filter to Demod Filter\n").Show(hr);
-			}
-
-			if (FAILED(hr = ConnectFilters(m_piGraphBuilder, m_pBDADemod, m_pBDACapture)))
-			{
-				return (g_log << "Failed to connect Demod Filter to Capture Filter\n").Show(hr);
-			}
-
-		}
-		else
-		{
-			if (FAILED(hr = ConnectFilters(m_piGraphBuilder, m_pBDATuner, m_pBDACapture)))
-			{
-				return (g_log << "Failed to connect Tuner Filter to Capture Filter\n").Show(hr);
-			}
-		}
-		
-		if (FAILED(hr = FindPinByMediaType(m_pBDACapture, MEDIATYPE_Stream, KSDATAFORMAT_SUBTYPE_BDA_MPEG2_TRANSPORT, &pCapturePin.p, REQUESTED_PINDIR_OUTPUT)))
-		{
-			//If that failed then try the other mpeg2 type, but this shouldn't happen.
-			if (FAILED(hr = FindPinByMediaType(m_pBDACapture, MEDIATYPE_Stream, MEDIASUBTYPE_MPEG2_TRANSPORT, &pCapturePin.p, REQUESTED_PINDIR_OUTPUT)))
-			{
-				return (g_log << "Failed to find Tranport Stream pin on Capture filter\n").Show(hr);
-			}
-		}
-	}
-	else if (m_pBDACard->demodDevice.bValid)
-	{
-		if (FAILED(hr = ConnectFilters(m_piGraphBuilder, m_pBDATuner, m_pBDADemod)))
-		{
-			return (g_log << "Failed to connect Tuner Filter to Demod Filter\n").Show(hr);
-		}
-
-		if (FAILED(hr = FindPinByMediaType(m_pBDADemod, MEDIATYPE_Stream, KSDATAFORMAT_SUBTYPE_BDA_MPEG2_TRANSPORT, &pCapturePin.p, REQUESTED_PINDIR_OUTPUT)))
-		{
-			//If that failed then try the other mpeg2 type, but this shouldn't happen.
-			if (FAILED(hr = FindPinByMediaType(m_pBDADemod, MEDIATYPE_Stream, MEDIASUBTYPE_MPEG2_TRANSPORT, &pCapturePin.p, REQUESTED_PINDIR_OUTPUT)))
-			{
-				return (g_log << "Failed to find Tranport Stream pin on Capture filter\n").Show(hr);
-			}
-		}
-	}
-	else
-	{
-		if (FAILED(hr = FindPinByMediaType(m_pBDATuner, MEDIATYPE_Stream, KSDATAFORMAT_SUBTYPE_BDA_MPEG2_TRANSPORT, &pCapturePin.p, REQUESTED_PINDIR_OUTPUT)))
-		{
-			//If that failed then try the other mpeg2 type, but this shouldn't happen.
-			if (FAILED(hr = FindPinByMediaType(m_pBDATuner, MEDIATYPE_Stream, MEDIASUBTYPE_MPEG2_TRANSPORT, &pCapturePin.p, REQUESTED_PINDIR_OUTPUT)))
-			{
-				return (g_log << "Failed to find Tranport Stream pin on Capture filter\n").Show(hr);
-			}
-		}
-	}
+	m_pBDACard->GetCapturePin(&pCapturePin.p);
 
 	CComPtr <IPin> pDemuxPin;
 	if (FAILED(hr = FindPin(m_pBDAMpeg2Demux, L"MPEG-2 Stream", &pDemuxPin.p, REQUESTED_PINDIR_INPUT)))
@@ -634,70 +553,8 @@ HRESULT	BDAChannelScan::LockChannel(long lFrequency, long lBandwidth, BOOL &lock
 
 
 		//Check that channel locked ok.
-
-		//Get IID_IBDA_Topology
-		CComPtr <IBDA_Topology> bdaNetTop;
-		if (FAILED(hr = m_pBDATuner.QueryInterface(&bdaNetTop)))
-		{
-			return (g_log << "Cannot Find IID_IBDA_Topology\n").Show(hr);
-		}
-
-		ULONG NodeTypes;
-		ULONG NodeType[32];
-		ULONG Interfaces;
-		GUID Interface[32];
-		CComPtr <IUnknown> iNode;
-
-		long longVal;
-		longVal = strength = quality = 0;
-		BYTE byteVal;
-		byteVal = locked = present = 0;
-
-		if (FAILED(hr = bdaNetTop->GetNodeTypes(&NodeTypes, 32, NodeType)))
-		{
-			return (g_log << "Cannot get node types\n").Show(hr);
-		}
-
-		for ( int i=0 ; i<NodeTypes ; i++ )
-		{
-			hr = bdaNetTop->GetNodeInterfaces(NodeType[i], &Interfaces, 32, Interface);
-			if (hr == S_OK)
-			{
-				for ( int j=0 ; j<Interfaces ; j++ )
-				{
-					if (Interface[j] == IID_IBDA_SignalStatistics)
-					{
-						hr = bdaNetTop->GetControlNode(0, 1, NodeType[i], &iNode);
-						if (hr == S_OK)
-						{
-							CComPtr <IBDA_SignalStatistics> pSigStats;
-
-							hr = iNode.QueryInterface(&pSigStats);
-							if (hr == S_OK)
-							{
-								if (SUCCEEDED(hr = pSigStats->get_SignalStrength(&longVal)))
-									strength = longVal;
-
-								if (SUCCEEDED(hr = pSigStats->get_SignalQuality(&longVal)))
-									quality = longVal;
-
-								if (SUCCEEDED(hr = pSigStats->get_SignalLocked(&byteVal)))
-									locked = byteVal;
-
-								if (SUCCEEDED(hr = pSigStats->get_SignalPresent(&byteVal)))
-									present = byteVal;
-
-								pSigStats.Release();
-							}
-							iNode.Release();
-						}
-						break;
-					}
-				}
-			}
-		}
-
-		bdaNetTop.Release();
+		if (FAILED(hr = GetSignalStatistics(locked, present, strength, quality)))
+			return hr;
 		
 		if ((locked>0) || (present>0))
 		{
@@ -707,6 +564,76 @@ HRESULT	BDAChannelScan::LockChannel(long lFrequency, long lBandwidth, BOOL &lock
 	}
 
 	return hr;
+}
+
+HRESULT BDAChannelScan::GetSignalStatistics(BOOL &locked, BOOL &present, long &strength, long &quality)
+{
+	HRESULT hr;
+
+	//Get IID_IBDA_Topology
+	CComPtr <IBDA_Topology> bdaNetTop;
+	if (FAILED(hr = m_pBDACard->m_pBDATuner.QueryInterface(&bdaNetTop)))
+	{
+		return (g_log << "Cannot Find IID_IBDA_Topology\n").Show(hr);
+	}
+
+	ULONG NodeTypes;
+	ULONG NodeType[32];
+	ULONG Interfaces;
+	GUID Interface[32];
+	CComPtr <IUnknown> iNode;
+
+	long longVal;
+	longVal = strength = quality = 0;
+	BYTE byteVal;
+	byteVal = locked = present = 0;
+
+	if (FAILED(hr = bdaNetTop->GetNodeTypes(&NodeTypes, 32, NodeType)))
+	{
+		return (g_log << "Cannot get node types\n").Show(hr);
+	}
+
+	for ( int i=0 ; i<NodeTypes ; i++ )
+	{
+		hr = bdaNetTop->GetNodeInterfaces(NodeType[i], &Interfaces, 32, Interface);
+		if (hr == S_OK)
+		{
+			for ( int j=0 ; j<Interfaces ; j++ )
+			{
+				if (Interface[j] == IID_IBDA_SignalStatistics)
+				{
+					hr = bdaNetTop->GetControlNode(0, 1, NodeType[i], &iNode);
+					if (hr == S_OK)
+					{
+						CComPtr <IBDA_SignalStatistics> pSigStats;
+
+						hr = iNode.QueryInterface(&pSigStats);
+						if (hr == S_OK)
+						{
+							if (SUCCEEDED(hr = pSigStats->get_SignalStrength(&longVal)))
+								strength = longVal;
+
+							if (SUCCEEDED(hr = pSigStats->get_SignalQuality(&longVal)))
+								quality = longVal;
+
+							if (SUCCEEDED(hr = pSigStats->get_SignalLocked(&byteVal)))
+								locked = byteVal;
+
+							if (SUCCEEDED(hr = pSigStats->get_SignalPresent(&byteVal)))
+								present = byteVal;
+
+							pSigStats.Release();
+						}
+						iNode.Release();
+					}
+					break;
+				}
+			}
+		}
+	}
+	bdaNetTop.Release();
+
+	return S_OK;
 }
 
 HRESULT BDAChannelScan::createConnectionPoint()

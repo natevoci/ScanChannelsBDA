@@ -4,6 +4,11 @@ ScanChannelsBDA ToDo list
 - Implement proper list of streams (rather than having a list of mp2 streams and only one video and ac3 stream)
 - Install DxSDK 9.0c (also Recompile DW 0.724)
 
+Changes in 2.0.0.3
++ Moved BDACard into it's own file and implemented AddFilters and ConnectFilters on it.
++ Added LogMessage class from DWII.
++ Replaced default parameters in strCopy functions with alternate functions. (this is just to make autocompletion nicer in VS)
+
 Changes in 2.0.0.2
 + Fixed problem multiple ServiceChanged event problem. Used to cause multiple threads to be running at once
 + Joey's timeout mod http://forums.dvbowners.com/index.php?showtopic=2302&view=findpost&p=21571 & http://forums.dvbowners.com/index.php?showtopic=2302&view=findpost&p=21643
