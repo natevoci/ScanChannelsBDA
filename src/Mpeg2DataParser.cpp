@@ -81,7 +81,52 @@ void Mpeg2DataParser::SetFilter(CComPtr <IBaseFilter> pBDASecTab)
 //////////////////////////////////////////////////////////////////////
 void Mpeg2DataParser::Reset()
 {
+	current_tp = NULL;
+
+	struct section_buf *s;
+	while (waiting_filters.size())
+	{
+		s = waiting_filters.back();
+		waiting_filters.pop_back();
+		free (s);
+	}
+
+	struct transponder *t;
+	while (transponders.size())
+	{
+		t = transponders.back();
+		transponders.pop_back();
+		DeleteTransponder(t);
+	}
+
 	ResetEvent(m_hScanningDoneEvent);
+}
+
+void Mpeg2DataParser::DeleteTransponder(struct transponder *t)
+{
+	struct service *s;
+	while (t->services.size())
+	{
+		s = t->services.back();
+		t->services.pop_back();
+		DeleteService(s);
+	}
+	if (t->other_f)
+		free(t->other_f);
+	t->other_f = NULL;
+	free(t);
+}
+
+void Mpeg2DataParser::DeleteService(struct service *s)
+{
+	if (s->provider_name)
+		free(s->provider_name);
+	s->provider_name = NULL;
+	if (s->service_name)
+		free(s->service_name);
+	s->service_name = NULL;
+
+	free(s);
 }
 
 void Mpeg2DataParser::WaitForScanToFinish(DWORD timeout)
@@ -109,8 +154,6 @@ void Mpeg2DataParser::StartMpeg2DataScanThread()
 
 	try
 	{
-		//current_tp = (struct transponder *)calloc(1, sizeof(*current_tp));
-
 		if (m_piIMpeg2Data != NULL) 
 		{
 			struct section_buf *s0;
@@ -451,8 +494,8 @@ void Mpeg2DataParser::parse_frequency_list_descriptor (const unsigned char *buf,
 	}
 
 	if (t->other_f)
-		delete[] t->other_f;
-	t->other_f = new __int32[t->n_other_f];
+		free(t->other_f);
+	t->other_f = (__int32*)malloc(sizeof(int)*t->n_other_f);
 
 	buf += 3;
 	for (int i = 0; i < t->n_other_f; i++)
@@ -752,6 +795,7 @@ void Mpeg2DataParser::parse_pat(const unsigned char *buf, int section_length, in
 				SetupFilter(s->priv, s->pmt_pid, 0x02, 1, 0, 5);
 
 				AddFilter (s->priv);
+				s->priv = NULL;
 			}
 		}
 		else

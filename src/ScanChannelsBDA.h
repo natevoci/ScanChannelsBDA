@@ -48,8 +48,8 @@ public:
 	HRESULT scanAll();
 	//HRESULT scanOne();
 
-	BOOL IsVerbose() { return m_mpeg2parser.IsVerbose(); }
-	void ToggleVerbose() { m_mpeg2parser.ToggleVerbose(); }
+	BOOL IsVerbose() { return m_bVerbose; }
+	void ToggleVerbose() { m_bVerbose = !m_bVerbose; }
 
 	BOOL StartGraph();
 	BOOL StopGraph();
@@ -106,6 +106,7 @@ private:
 	HANDLE m_hServiceChangedMutex;
 
 	BOOL m_bScanning;
+	BOOL m_bVerbose;
 
 	long m_freq[256];
 	long m_band[256];

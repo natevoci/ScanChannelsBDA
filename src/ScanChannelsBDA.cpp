@@ -45,6 +45,7 @@ BDAChannelScan::BDAChannelScan()
 
 	m_Count = 0;
 	m_bScanning = FALSE;
+	m_bVerbose = FALSE;
 }
 
 BDAChannelScan::~BDAChannelScan()
@@ -475,8 +476,6 @@ HRESULT	BDAChannelScan::BuildGraph()
 		return E_FAIL;
 	}
 
-	m_mpeg2parser.SetFilter(m_pBDASecTab);
-
 	return hr;
 }
 
@@ -836,7 +835,9 @@ HRESULT BDAChannelScan::scanChannel(long channelNumber, long frequency, long ban
 {
 	ResetEvent(m_hGuideDataChangedEvent);
 	m_mpeg2parser.Reset();
+	m_mpeg2parser.SetFilter(m_pBDASecTab);
 	m_mpeg2parser.SetNetworkNumber(channelNumber);
+	m_mpeg2parser.SetVerbose(m_bVerbose);
 	m_bScanning = TRUE;
 
 	long nStrength = 0;

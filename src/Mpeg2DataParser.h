@@ -133,8 +133,7 @@ public:
 
 	void PrintDigitalWatchChannelsIni();
 
-	BOOL IsVerbose() { return verbose; }
-	void ToggleVerbose() { verbose = (verbose ? 0 : 1); }
+	void SetVerbose(BOOL verb) { verbose = verb; }
 
 private:
 	void SetupFilter (struct section_buf* s, int pid, int tid, int run_once, int segmented, int timeout);
@@ -174,6 +173,9 @@ private:
 	void PrintByteArray(const BYTE *pData, long cbSize);
 	void PrintWordArray(const BYTE *pData, long cbSize);
 	void PaddingForNumber(long number, long totalWidth);
+
+	void DeleteTransponder(struct transponder *t);
+	void DeleteService(struct service *s);
 
 	CComPtr <IMpeg2Data> m_piIMpeg2Data;
 
