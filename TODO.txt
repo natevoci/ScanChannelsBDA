@@ -4,6 +4,7 @@ ScanChannelsBDA ToDo list
 + Change DisplayName in FilterGraphTools to DevicePath
 + Joey's mod to pick up ONID http://forums.dvbowners.com/index.php?showtopic=2302&view=findpost&p=21282
 + Joey's try catch mod http://forums.dvbowners.com/index.php?showtopic=2302&view=findpost&p=21312
++ Joey's signal stats mod http://forums.dvbowners.com/index.php?showtopic=2302&view=findpost&p=21443
 - Install DxSDK 9.0c
 - keep a list of transponders so that the correct transponder is used for services
 - Include Teletext PIDs after the channel number
@@ -12,7 +13,6 @@ ScanChannelsBDA ToDo list
   two scans to run side by side.
 - Implement proper list of streams (rather than having a list of mp2 streams and only one video and ac3 stream)
 - replace linked lists with vectors
-- Joey's signal stats mod http://forums.dvbowners.com/index.php?showtopic=2302&view=findpost&p=21443
 
 
 Recompile DW 0.724 with DXSDK 9.0c

@@ -479,12 +479,12 @@ HRESULT	BDAChannelScan::BuildGraph()
 	return hr;
 }
 
-HRESULT	BDAChannelScan::LockChannel(long Frequency,	long Bandwidth)
+HRESULT	BDAChannelScan::LockChannel(long lFrequency, long lBandwidth, long &strength, long &quality)
 {
 	HRESULT hr = S_OK;
 	CComPtr <ITuneRequest> piTuneRequest;
 
-	if (SUCCEEDED(hr = this->newRequest(Frequency, Bandwidth, piTuneRequest.p)))
+	if (SUCCEEDED(hr = this->newRequest(lFrequency, lBandwidth, piTuneRequest.p)))
 	{
 		CComQIPtr <ITuner> pTuner(m_pBDANetworkProvider);
 		if (!pTuner)
@@ -518,7 +518,7 @@ HRESULT	BDAChannelScan::LockChannel(long Frequency,	long Bandwidth)
 		GUID Interface[32];
 		CComPtr <IUnknown> iNode;
 
-		long longVal, strength, quality;
+		long longVal;
 		longVal = strength = quality = 0;
 		BYTE byteVal, locked, present;
 		byteVal = locked = present = 0;
@@ -824,13 +824,26 @@ HRESULT BDAChannelScan::scanChannel(long channelNumber, long frequency, long ban
 	m_mpeg2parser.Reset();
 	m_mpeg2parser.SetNetworkNumber(channelNumber);
 	m_bScanning = TRUE;
-	HRESULT hr = LockChannel(frequency, bandwidth);
+
+	long nStrength = 0;
+	long nQuality = 0;
+
+	HRESULT hr = LockChannel(frequency, bandwidth, nStrength, nQuality);
+
 	switch (hr)
 	{
 		case S_OK:
+			printf("# locked %ld, %ld signal strength = %ld quality = %ld\n",
+					frequency, bandwidth, nStrength, nQuality);
 			m_mpeg2parser.WaitForScanToFinish(INFINITE);
 			break;
+
+		default:
+			printf("# no lock %ld, %ld signal strength = %ld quality = %ld\n",
+					frequency, bandwidth, nStrength, nQuality);
+			break;
 	}
+
 	m_bScanning = FALSE;
 	return hr;
 }

@@ -38,7 +38,7 @@ public:
 	
 	HRESULT CreateGraph();
 	HRESULT	BuildGraph();
-	HRESULT	LockChannel(long lFrequency, long lBandwidth);
+	HRESULT	LockChannel(long lFrequency, long lBandwidth, long &strength, long &quality);
 	HRESULT	newRequest(long lFrequency, long lBandwidth, ITuneRequest* &pExTuneRequest);
 	HRESULT	InitialiseTuningSpace();
 
