@@ -1,6 +1,7 @@
 /**
  *	Mpeg2DataParser.h
  *	Copyright (C) 2004 Nate
+ *  Copyright (C) 2004 JoeyBloggs
  *
  *	This file is part of DigitalWatch, a free DTV watching and recording
  *	program for the VisionPlus DVB-T.

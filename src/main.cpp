@@ -2,6 +2,7 @@
  *	main.cpp
  *	Copyright (C) 2004 BionicDonkey
  *  Copyright (C) 2004 Nate
+ *  Copyright (C) 2004 JoeyBloggs
  *
  *	This file is part of DigitalWatch, a free DTV watching and recording
  *	program for the VisionPlus DVB-T.
@@ -104,11 +105,12 @@ HRESULT ShowMenu()
 		cout << endl;
 		cout << "1. Add Network" << endl;
 		cout << "2. Generate Channels.ini" << endl;
+		cout << "4. Signal Statistics" << endl;
 		cout << "5. Scan all Australian frequencies"  << endl;
 		cout << "6. Turn Verbose output " << (cBDAChannelScan->IsVerbose() ? "Off" : "On") << endl;
 		cout << "10.Exit"		 << endl;
 		cout << endl;
-		cout << "Please Select Menu(1,2,5,6,10):";
+		cout << "Please Select Menu(1,2,4,5,6,10):";
 
 		cin >> iMenuSelect;
 
@@ -122,6 +124,11 @@ HRESULT ShowMenu()
 
 		case 2:
 			cBDAChannelScan->scanNetworks();
+			break;
+
+		case 4:
+			GetChannelInfo(freq, band);
+			cBDAChannelScan->SignalStatistics(freq, band);
 			break;
 
 		case 5:

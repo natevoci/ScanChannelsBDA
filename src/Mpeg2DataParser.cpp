@@ -1,6 +1,7 @@
 /**
  *	Mpeg2DataParser.cpp
  *	Copyright (C) 2004 Nate
+ *  Copyright (C) 2004 JoeyBloggs
  *
  *  significant portions of this code are taken from 
  *  the linuxtv-dvb-apps-1.1.0 scan.c file

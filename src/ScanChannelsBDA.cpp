@@ -2,6 +2,7 @@
  *	ScanChannelsBDA.cpp
  *	Copyright (C) 2004 BionicDonkey
  *  Copyright (C) 2004 Nate
+ *  Copyright (C) 2004 JoeyBloggs
  *
  *	This file is part of DigitalWatch, a free DTV watching and recording
  *	program for the VisionPlus DVB-T.
@@ -904,6 +905,45 @@ HRESULT BDAChannelScan::scanChannels()
 		//if (SUCCEEDED(hr))
 			//getServiceProperties();
 	}
+
+	return hr;
+}
+
+HRESULT BDAChannelScan::SignalStatistics(long frequency, long bandwidth)
+{
+	HRESULT hr;
+	BOOL bLocked = FALSE;
+	BOOL bPresent = FALSE;
+	long nStrength = 0;
+	long nQuality = 0;
+
+	BOOL bKeyboardEvent = FALSE;
+
+	do
+	{
+		hr = LockChannel(frequency, bandwidth, bLocked, bPresent, nStrength, nQuality);
+
+		switch (hr)
+		{
+			case S_OK:
+				printf("# locked %ld, %ld signal locked = %s present = %s strength = %ld quality = %ld\n",
+						frequency, bandwidth,
+						bLocked ? "Y" : "N", bPresent ? "Y" : "N",
+						nStrength, nQuality);
+				break;
+
+			default:
+				printf("# no lock %ld, %ld signal  locked = %s present = %s strength = %ld quality = %ld\n",
+						frequency, bandwidth,
+						bLocked ? "Y" : "N", bPresent ? "Y" : "N",
+						nStrength, nQuality);
+				break;
+		}
+
+		if (::WaitForSingleObject(::GetStdHandle(STD_INPUT_HANDLE), 100) == WAIT_OBJECT_0)
+			bKeyboardEvent = TRUE;
+
+	} while (!bKeyboardEvent);
 
 	return hr;
 }

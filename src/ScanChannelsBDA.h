@@ -2,6 +2,7 @@
  *	ScanChannelsBDA.h
  *	Copyright (C) 2004 BionicDonkey
  *	Copyright (C) 2004 Nate
+ *  Copyright (C) 2004 JoeyBloggs
  *
  *	This file is part of DigitalWatch, a free DTV watching and recording
  *	program for the VisionPlus DVB-T.
@@ -47,6 +48,8 @@ public:
 	HRESULT scanNetworks();
 	HRESULT scanAll();
 	//HRESULT scanOne();
+
+	HRESULT SignalStatistics(long frequency, long bandwidth);
 
 	BOOL IsVerbose() { return m_bVerbose; }
 	void ToggleVerbose() { m_bVerbose = !m_bVerbose; }
