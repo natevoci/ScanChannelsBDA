@@ -167,7 +167,7 @@ HRESULT AddFilterByName(IGraphBuilder* piGraphBuilder, IBaseFilter* &pFilter, CL
 	return E_FAIL;
 }
 
-HRESULT AddFilterByDisplayName(IGraphBuilder* piGraphBuilder, IBaseFilter* &pFilter, LPCWSTR pDisplayName, LPCWSTR pName)
+HRESULT AddFilterByDevicePath(IGraphBuilder* piGraphBuilder, IBaseFilter* &pFilter, LPCWSTR pDevicePath, LPCWSTR pName)
 {
 	HRESULT hr;
 	CComPtr <IBindCtx> pBindCtx;
@@ -180,9 +180,9 @@ HRESULT AddFilterByDisplayName(IGraphBuilder* piGraphBuilder, IBaseFilter* &pFil
 		return hr;
 	}
 
-	if (FAILED(hr = MkParseDisplayName(pBindCtx, pDisplayName, &dwEaten, &pMoniker)) || (pMoniker.p == NULL))
+	if (FAILED(hr = MkParseDisplayName(pBindCtx, pDevicePath, &dwEaten, &pMoniker)) || (pMoniker.p == NULL))
 	{
-		cout << "AddFilterByDevicePath: Could not create moniker from display name " << pDisplayName << "  (" << pName << ")" << endl;
+		cout << "AddFilterByDevicePath: Could not create moniker from device path " << pDevicePath << "  (" << pName << ")" << endl;
 		pBindCtx.Release();
 		return hr;
 	}
@@ -194,7 +194,7 @@ HRESULT AddFilterByDisplayName(IGraphBuilder* piGraphBuilder, IBaseFilter* &pFil
 	}
 	else
 	{
-		strCopy(pGraphName, pDisplayName);
+		strCopy(pGraphName, pDevicePath);
 	}
 
 	hr = pMoniker->BindToObject(0, 0, IID_IBaseFilter, (void**)&pFilter);

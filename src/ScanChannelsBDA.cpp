@@ -363,7 +363,7 @@ HRESULT	BDAChannelScan::BuildGraph()
 
 	//We can now add the rest of the source filters
 	
-	if (FAILED(hr = AddFilterByDisplayName(m_piGraphBuilder, m_pBDATuner.p, m_pBDACard->tunerDevice.strDevicePath, m_pBDACard->tunerDevice.strFriendlyName)))
+	if (FAILED(hr = AddFilterByDevicePath(m_piGraphBuilder, m_pBDATuner.p, m_pBDACard->tunerDevice.strDevicePath, m_pBDACard->tunerDevice.strFriendlyName)))
 	{
 		cout << "Cannot load Tuner Device" << endl;
 		return FALSE;
@@ -371,14 +371,14 @@ HRESULT	BDAChannelScan::BuildGraph()
 
 	if (m_pBDACard->bUsesDemod)
 	{
-		if (FAILED(hr = AddFilterByDisplayName(m_piGraphBuilder, m_pBDADemod.p, m_pBDACard->demodDevice.strDevicePath, m_pBDACard->demodDevice.strFriendlyName)))
+		if (FAILED(hr = AddFilterByDevicePath(m_piGraphBuilder, m_pBDADemod.p, m_pBDACard->demodDevice.strDevicePath, m_pBDACard->demodDevice.strFriendlyName)))
 		{
 			cout << "Cannot load Demod Device" << endl;
 			return FALSE;
 		}
 	}
 
-	if (FAILED(hr = AddFilterByDisplayName(m_piGraphBuilder, m_pBDACapture.p, m_pBDACard->captureDevice.strDevicePath, m_pBDACard->captureDevice.strFriendlyName)))
+	if (FAILED(hr = AddFilterByDevicePath(m_piGraphBuilder, m_pBDACapture.p, m_pBDACard->captureDevice.strDevicePath, m_pBDACard->captureDevice.strFriendlyName)))
 	{
 		cout << "Cannot load Capture Device" << endl;
 		return FALSE;

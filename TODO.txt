@@ -1,9 +1,9 @@
 ScanChannelsBDA ToDo list
 
-- detect demod device between tuner and capture device
++ detect demod device between tuner and capture device
++ Change DisplayName in FilterGraphTools to DevicePath
 - Install DxSDK 9.0c
 - keep a list of transponders so that the correct transponder is used for services
-- Change DisplayName in FilterGraphTools to DevicePath
 - Include Teletext PIDs after the channel number
 - Use manually entered frequency if doesn't match by +-3500
 - Put an IsAlreadyScanning check in ServiceChanged to stop multiple events causing

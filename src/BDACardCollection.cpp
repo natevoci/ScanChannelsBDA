@@ -411,7 +411,7 @@ BOOL BDACardCollection::FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, 
 
 		//--- We can now add and connect the tuner filter ---
 		
-		if (FAILED(hr = AddFilterByDisplayName(piGraphBuilder, piBDATuner.p, pTunerDevice->strDevicePath, pTunerDevice->strFriendlyName)))
+		if (FAILED(hr = AddFilterByDevicePath(piGraphBuilder, piBDATuner.p, pTunerDevice->strDevicePath, pTunerDevice->strFriendlyName)))
 		{
 			//(g_log << "Cannot load Tuner Device").Write();
 			break;
@@ -428,7 +428,7 @@ BOOL BDACardCollection::FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, 
 		*ppDemodDevice = NULL;
 		while (hr = enumerator.Next(ppDemodDevice) == S_OK)
 		{
-			if (FAILED(hr = AddFilterByDisplayName(piGraphBuilder, piBDADemod.p, (*ppDemodDevice)->strDevicePath, (*ppDemodDevice)->strFriendlyName)))
+			if (FAILED(hr = AddFilterByDevicePath(piGraphBuilder, piBDADemod.p, (*ppDemodDevice)->strDevicePath, (*ppDemodDevice)->strFriendlyName)))
 			{
 				break;
 			}
@@ -450,7 +450,7 @@ BOOL BDACardCollection::FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, 
 			*ppCaptureDevice = NULL;
 			while (hr = enumerator.Next(ppCaptureDevice) == S_OK)
 			{
-				if (FAILED(hr = AddFilterByDisplayName(piGraphBuilder, piBDACapture.p, (*ppCaptureDevice)->strDevicePath, (*ppCaptureDevice)->strFriendlyName)))
+				if (FAILED(hr = AddFilterByDevicePath(piGraphBuilder, piBDACapture.p, (*ppCaptureDevice)->strDevicePath, (*ppCaptureDevice)->strFriendlyName)))
 				{
 					break;
 				}

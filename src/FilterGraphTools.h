@@ -46,7 +46,7 @@ BOOL ErrorMessageBox(LPCTSTR message);
 
 HRESULT AddFilter(IGraphBuilder* piGraphBuilder, REFCLSID rclsid, IBaseFilter* &pFilter, LPCWSTR pName, BOOL bSilent = FALSE);
 HRESULT AddFilterByName(IGraphBuilder* piGraphBuilder, IBaseFilter* &pFilter, CLSID clsidDeviceClass, LPCWSTR friendlyName);
-HRESULT AddFilterByDisplayName(IGraphBuilder* piGraphBuilder, IBaseFilter* &pFilter, LPCWSTR pDisplayName, LPCWSTR pName);
+HRESULT AddFilterByDevicePath(IGraphBuilder* piGraphBuilder, IBaseFilter* &pFilter, LPCWSTR pDevicePath, LPCWSTR pName);
 
 HRESULT EnumPins(IBaseFilter* source);
 
