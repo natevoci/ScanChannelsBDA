@@ -1,5 +1,17 @@
 ScanChannelsBDA ToDo list
 
+- Use manually entered frequency if doesn't match by +-3500
+- Implement proper list of streams (rather than having a list of mp2 streams and only one video and ac3 stream)
+- Install DxSDK 9.0c (also Recompile DW 0.724)
+
+Changes in 2.0.0.2
++ Fixed problem multiple ServiceChanged event problem. Used to cause multiple threads to be running at once
++ Joey's timeout mod http://forums.dvbowners.com/index.php?showtopic=2302&view=findpost&p=21571 & http://forums.dvbowners.com/index.php?showtopic=2302&view=findpost&p=21643
++ Joey's tuning loop mod http://forums.dvbowners.com/index.php?showtopic=2302&view=findpost&p=21670
++ Update BDACardCollection to support Tuner device with no capture device.
++ Moved graph creation and destruction into BDAChannelScan so that the graph only exists when scanning
+
+Changes in 2.0.0.1
 + detect demod device between tuner and capture device
 + Change DisplayName in FilterGraphTools to DevicePath
 + Joey's mod to pick up ONID http://forums.dvbowners.com/index.php?showtopic=2302&view=findpost&p=21282
@@ -10,9 +22,4 @@ ScanChannelsBDA ToDo list
 + replace linked lists with vectors
 + keep a list of transponders so that the correct transponder is used for services
 + Include Teletext PIDs after the channel number
-- Use manually entered frequency if doesn't match by +-3500
-- Implement proper list of streams (rather than having a list of mp2 streams and only one video and ac3 stream)
-- Install DxSDK 9.0c (also Recompile DW 0.724)
-
-
 
