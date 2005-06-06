@@ -121,7 +121,7 @@ HRESULT ShowMenu()
 		
 		cout << "10.Exit"		 << endl;
 		cout << endl;
-		cout << "Please Select Menu(1,2,4,5,6,10):";
+		cout << "Please Select Menu(1,2,4,5,6,9,10):";
 
 		cin >> strMenuSelect;
 
