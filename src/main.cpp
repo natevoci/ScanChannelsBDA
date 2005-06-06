@@ -64,6 +64,7 @@ HRESULT ShowMenu()
 	HRESULT hr = S_OK;
 
 	BOOL bExit = FALSE ;
+	char strMenuSelect[80];
 	int iMenuSelect = 0;
 
 	cout << "This program was designed to create channels.ini entries" << endl;
@@ -106,14 +107,42 @@ HRESULT ShowMenu()
 		cout << "4. Signal Statistics" << endl;
 		cout << "5. Scan all Australian frequencies"  << endl;
 		cout << "6. Turn Verbose output " << (cBDAChannelScan->IsVerbose() ? "Off" : "On") << endl;
+		cout << "9. Toggle Lock Detection : ";
+		
+		switch (cBDAChannelScan->LockDetectionMode())
+		{
+		case LOCK_MODE_LOCKED:
+			cout << "Using (Signal Locked != 0)" << endl; break;
+		case LOCK_MODE_QUALITY:
+			cout << "Using (Quality > 0)" << endl; break;
+		default:
+			cout << "Unknown Mode" << endl; break;
+		};
+		
 		cout << "10.Exit"		 << endl;
 		cout << endl;
 		cout << "Please Select Menu(1,2,4,5,6,10):";
 
-		cin >> iMenuSelect;
+		cin >> strMenuSelect;
+
+		iMenuSelect = 0;
+		for (int i=0 ; (strMenuSelect[i]!='\0' && i<80) ; i++ )
+		{
+			if ((strMenuSelect[i] < '0') || (strMenuSelect[i] > '9'))
+			{
+				iMenuSelect = -1;
+				break;
+			}
+			iMenuSelect *= 10;
+			iMenuSelect += strMenuSelect[i] - '0';
+		}
 
 		switch (iMenuSelect)
 		{
+		case -1:
+			cout << "Invalid number, Please Select again" << endl;  
+			continue;
+
 		case 1:
 			long freq, band;
 			GetChannelInfo(freq, band);
@@ -137,12 +166,16 @@ HRESULT ShowMenu()
 			cBDAChannelScan->ToggleVerbose();
 			break;
 
+		case 9:
+			cBDAChannelScan->ToggleLockDetectionMode();
+			break;
+
 		case 10:
 			bExit = TRUE;
 			break;
 
 		default:
-			cout << "Error selecting,Please Select again" << endl;  
+			cout << "Error selecting, Please Select again" << endl;  
 			continue;
 		}
 	}

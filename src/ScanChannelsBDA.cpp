@@ -51,6 +51,7 @@ BDAChannelScan::BDAChannelScan()
 	m_Count = 0;
 	m_bScanning = FALSE;
 	m_bVerbose = FALSE;
+	m_nLockDetectionMode = 0;
 
 	cardList.SetLogCallback(&lmw);
 	SetLogCallback(&m_console);
@@ -191,7 +192,7 @@ void BDAChannelScan::DestroyGraph()
 		m_piConnectionPoint->Unadvise(m_dwAdviseCookie); 
 
 	m_piConnectionPoint.Release();
-	m_piGuideData.Release();
+	//m_piGuideData.Release();
 
 	graphTools.DisconnectAllPins(m_piGraphBuilder);
 
@@ -202,13 +203,19 @@ void BDAChannelScan::DestroyGraph()
 	m_piTuner.Release();
 	graphTools.RemoveAllFilters(m_piGraphBuilder);
 
-	//m_pBDANetworkProvider.Release();	//causes an exception. don't know why
-	m_pBDANetworkProvider.Detach();		//so i'll just do this instead
-
-	m_pBDAMpeg2Demux.Release();
-	m_pBDATIF.Release();
 	m_pBDASecTab.Release();
+	m_pBDATIF.Release();
+	m_pBDAMpeg2Demux.Release();
 
+	try
+	{
+		m_pBDANetworkProvider.Release();	//causes an exception. don't know why
+		//m_pBDANetworkProvider.Detach();		//so i'll just do this instead
+	}
+	catch (...)
+	{
+		m_pBDANetworkProvider.Detach();
+	}
 
 	if (m_rotEntry)
 		graphTools.RemoveFromRot(m_rotEntry);
@@ -398,6 +405,13 @@ void BDAChannelScan::ToggleVerbose()
 	}
 }
 
+void BDAChannelScan::ToggleLockDetectionMode()
+{
+	m_nLockDetectionMode++;
+	if (m_nLockDetectionMode >= LOCK_MODE_COUNT)
+		m_nLockDetectionMode = 0;
+}
+
 HRESULT	BDAChannelScan::CreateGraph()
 {
 	HRESULT hr = S_OK;
@@ -565,8 +579,19 @@ HRESULT	BDAChannelScan::LockChannel(long lFrequency, long lBandwidth, BOOL &lock
 					 << " quality = " << quality << "\n").Show();
 			
 			//if ((locked>0) || (present>0) || (quality>0))
-			if (quality>0)
-				return S_OK;
+			switch (m_nLockDetectionMode)
+			{
+			case LOCK_MODE_QUALITY:
+				if (quality>0)
+					return S_OK;
+				break;
+
+			case LOCK_MODE_LOCKED:
+			default:
+				if (locked>0)
+					return S_OK;
+				break;
+			};
 
 			Sleep(100);
 		}
@@ -585,10 +610,10 @@ HRESULT BDAChannelScan::createConnectionPoint()
 {
 	HRESULT hr;
 
-	if (FAILED(hr = m_pBDATIF->QueryInterface(__uuidof(IGuideData), reinterpret_cast<void **>(&m_piGuideData))))
+	/*if (FAILED(hr = m_pBDATIF->QueryInterface(__uuidof(IGuideData), reinterpret_cast<void **>(&m_piGuideData))))
 	{
 		return (log << "Failed to interface GuideData with TIF\n").Show(hr);
-	}
+	}*/
 
 	CComPtr <IConnectionPointContainer> piContainer;
 	if (FAILED(hr = m_pBDATIF->QueryInterface(__uuidof(IConnectionPointContainer), reinterpret_cast<void **>(&piContainer))))

@@ -34,6 +34,11 @@
 
 #include <bdatif.h>
 
+#define LOCK_MODE_LOCKED	0
+#define LOCK_MODE_QUALITY	1
+#define LOCK_MODE_COUNT		2
+
+
 class BDAChannelScan : IGuideDataEvent, public LogMessageCaller
 {
 public:
@@ -55,6 +60,9 @@ public:
 
 	BOOL IsVerbose() { return m_bVerbose; }
 	void ToggleVerbose();
+
+	long LockDetectionMode() { return m_nLockDetectionMode; }
+	void ToggleLockDetectionMode();
 
 	BOOL StartGraph();
 	BOOL StopGraph();
@@ -120,6 +128,7 @@ private:
 
 	BOOL m_bScanning;
 	BOOL m_bVerbose;
+	long m_nLockDetectionMode;
 
 	long m_freq[256];
 	long m_band[256];

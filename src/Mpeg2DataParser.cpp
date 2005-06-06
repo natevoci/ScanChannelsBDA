@@ -70,8 +70,7 @@ void Mpeg2DataParser::SetNetworkNumber(int network)
 
 void Mpeg2DataParser::SetFilter(CComPtr <IBaseFilter> pBDASecTab)
 {
-	if (m_piIMpeg2Data != NULL)
-		m_piIMpeg2Data.Release(); 
+	m_piIMpeg2Data.Release(); 
 
 	if (pBDASecTab != NULL) 
 	{
@@ -81,8 +80,7 @@ void Mpeg2DataParser::SetFilter(CComPtr <IBaseFilter> pBDASecTab)
 
 void Mpeg2DataParser::ReleaseFilter()
 {
-	if (m_piIMpeg2Data)
-		m_piIMpeg2Data.Release();
+	m_piIMpeg2Data.Release();
 }
 
 //////////////////////////////////////////////////////////////////////
