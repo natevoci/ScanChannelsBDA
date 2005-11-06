@@ -51,12 +51,16 @@ public:
 	HRESULT	LockChannel(long lFrequency, long lBandwidth, BOOL &locked, BOOL &present, long &strength, long &quality);
 	HRESULT GetSignalStatistics(BOOL &locked, BOOL &present, long &strength, long &quality);
 
+	HRESULT	BuildTSFileSinkGraph(long freq, long band, LPTSTR pFilename);
+	HRESULT	ConnectTSFileSinkGraph();
+
 	HRESULT selectCard();
 	void AddNetwork(long freq, long band);
 	HRESULT scanNetworks();
 	HRESULT scanAll();
 
 	HRESULT SignalStatistics(long frequency, long bandwidth);
+	HRESULT TestTSFileSink(long freq, long band, LPTSTR pFilename);
 
 	BOOL IsVerbose() { return m_bVerbose; }
 	void ToggleVerbose();
@@ -84,7 +88,9 @@ public:
 
 private:
 	HRESULT SetupGraph();
+	HRESULT SetupGraphForTSFileSink(long freq, long band, LPTSTR pFilename);
 	void DestroyGraph();
+	void DestroyGraphForTSFileSink();
 
 	HRESULT scanChannel(long channelNumber, long frequency, long bandwidth);
 
@@ -93,6 +99,8 @@ private:
 	CComPtr <IBaseFilter> m_pBDAMpeg2Demux;
 	CComPtr <IBaseFilter> m_pBDATIF;
 	CComPtr <IBaseFilter> m_pBDASecTab;
+
+	CComPtr <IBaseFilter> m_pTSFileSink;
 	
 	CComPtr <ITuningSpace> m_pTuningSpace;
 	CComPtr <IScanningTuner> m_piTuner;

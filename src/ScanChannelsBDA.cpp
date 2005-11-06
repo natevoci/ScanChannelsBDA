@@ -31,6 +31,8 @@
 #include <bdamedia.h>
 #include <stdio.h>
 
+static CLSID CLSID_TSFileSink  = {0x5cdd5c68, 0x80dc, 0x43e1, {0x9e, 0x44, 0xc8, 0x49, 0xca, 0x80, 0x26, 0xe7}};
+
 extern LogMessageWriter lmw;
 
 BDAChannelScan::BDAChannelScan()
@@ -184,6 +186,33 @@ HRESULT BDAChannelScan::SetupGraph()
 	return hr;
 }
 
+HRESULT BDAChannelScan::SetupGraphForTSFileSink(long freq, long band, LPTSTR pFilename)
+{
+	HRESULT hr = S_OK;
+
+	if (FAILED(hr = CreateGraph()))
+	{
+		return (log << "Failed to create graph.\n").Show(hr);
+	}
+	
+	if (FAILED(hr = BuildTSFileSinkGraph(freq, band, pFilename)))
+	{
+		return (log << "Failed to add filters to graph.\n").Show(hr);
+	}
+
+	if (FAILED(hr = ConnectTSFileSinkGraph()))
+	{
+		return (log << "Failed to connect filters in graph.\n").Show(hr);
+	}
+
+	if (StartGraph() == FALSE)
+	{
+		return (log << "Failed to start the graph\n").Show(hr);
+	}
+
+	return hr;
+}
+
 void BDAChannelScan::DestroyGraph()
 {
 	StopGraph();
@@ -206,6 +235,38 @@ void BDAChannelScan::DestroyGraph()
 	m_pBDASecTab.Release();
 	m_pBDATIF.Release();
 	m_pBDAMpeg2Demux.Release();
+
+	try
+	{
+		m_pBDANetworkProvider.Release();	//causes an exception. don't know why
+		//m_pBDANetworkProvider.Detach();		//so i'll just do this instead
+	}
+	catch (...)
+	{
+		m_pBDANetworkProvider.Detach();
+	}
+
+	if (m_rotEntry)
+		graphTools.RemoveFromRot(m_rotEntry);
+	m_piMediaControl.Release();
+	m_piGraphBuilder.Release();
+
+}
+
+void BDAChannelScan::DestroyGraphForTSFileSink()
+{
+	StopGraph();
+
+	graphTools.DisconnectAllPins(m_piGraphBuilder);
+
+	if (m_pBDACard)
+		m_pBDACard->RemoveFilters();
+
+	m_pTuningSpace.Release();
+	m_piTuner.Release();
+	graphTools.RemoveAllFilters(m_piGraphBuilder);
+
+	m_pTSFileSink.Release();
 
 	try
 	{
@@ -368,6 +429,9 @@ HRESULT BDAChannelScan::SignalStatistics(long frequency, long bandwidth)
 	long nQuality = 0;
 
 	BOOL bKeyboardEvent = FALSE;
+	HANDLE hInput = ::GetStdHandle(STD_INPUT_HANDLE);
+	INPUT_RECORD irInBuf[1];
+	DWORD numRead = 0;
 
 	(log << "# locking " << frequency << ", " << bandwidth << "\n").Show();
 	do
@@ -379,8 +443,12 @@ HRESULT BDAChannelScan::SignalStatistics(long frequency, long bandwidth)
 			 << " stength = " << nStrength
 			 << " quality = " << nQuality << "\n").Show();
 
-		if (::WaitForSingleObject(::GetStdHandle(STD_INPUT_HANDLE), 100) == WAIT_OBJECT_0)
-			bKeyboardEvent = TRUE;
+		if (::WaitForSingleObject(hInput, 1000) == WAIT_OBJECT_0)
+		{
+			ReadConsoleInput(hInput, irInBuf, 1, &numRead);
+			if ((numRead == 1) && (irInBuf[0].EventType == KEY_EVENT)) // make sure it's a key event, not a mouse or focus event
+				bKeyboardEvent = TRUE;
+		}
 
 	} while (!bKeyboardEvent);
 
@@ -389,6 +457,32 @@ HRESULT BDAChannelScan::SignalStatistics(long frequency, long bandwidth)
 	return hr;
 }
 
+HRESULT BDAChannelScan::TestTSFileSink(long freq, long band, LPTSTR pFilename)
+{
+	HRESULT hr;
+
+	if (FAILED(hr = SetupGraphForTSFileSink(freq, band, pFilename)))
+		return hr;
+
+	BOOL bKeyboardEvent = FALSE;
+	HANDLE hInput = ::GetStdHandle(STD_INPUT_HANDLE);
+	INPUT_RECORD irInBuf[1];
+	DWORD numRead = 0;
+
+	do
+	{
+		if (::WaitForSingleObject(hInput, 1000) == WAIT_OBJECT_0)
+		{
+			ReadConsoleInput(hInput, irInBuf, 1, &numRead);
+			if ((numRead == 1) && (irInBuf[0].EventType == KEY_EVENT)) // make sure it's a key event, not a mouse or focus event
+				bKeyboardEvent = TRUE;
+		}
+	} while (!bKeyboardEvent);
+
+	DestroyGraphForTSFileSink();
+
+	return hr;
+}
 
 void BDAChannelScan::ToggleVerbose()
 {
@@ -545,6 +639,109 @@ HRESULT	BDAChannelScan::ConnectGraph()
 
 	return hr;
 }
+
+HRESULT	BDAChannelScan::BuildTSFileSinkGraph(long freq, long band, LPTSTR pFilename)
+{
+	HRESULT hr = S_OK;
+
+    CComBSTR bstrNetworkType;
+    CLSID CLSIDNetworkType;
+	LONG frequency = freq;
+	LONG bandwidth = band;
+
+	// Initialise the tune request
+	if (FAILED(hr = graphTools.InitDVBTTuningSpace(m_pTuningSpace)))
+	{
+		return (log << "Failed to initialise the Tune Request\n").Show(hr);
+	}
+
+	// Get the current Network Type clsid
+    if (FAILED(hr = m_pTuningSpace->get_NetworkType(&bstrNetworkType)))
+	{
+		return (log << "Failed to get TuningSpace Network Type\n").Show(hr);
+    }
+
+	if (FAILED(hr = CLSIDFromString(bstrNetworkType, &CLSIDNetworkType)))
+	{
+		return (log << "Couldn't get CLSIDFromString\n").Show(hr);
+	}
+
+    // create the network provider based on the clsid obtained from the tuning space
+	if (FAILED(hr = graphTools.AddFilter(m_piGraphBuilder, CLSIDNetworkType, &m_pBDANetworkProvider, L"Network Provider")))
+	{
+		return (log << "Failed to add Network Provider to the graph\n").Show(hr);
+	}
+
+	//Create TuneRequest
+	CComPtr <ITuneRequest> pTuneRequest;
+	if (FAILED(hr = graphTools.CreateDVBTTuneRequest(m_pTuningSpace, pTuneRequest, frequency, bandwidth)))
+	{
+		return (log << "Failed to create the Tune Request.\n").Show(hr);
+	}
+
+	//Apply TuneRequest
+	if (FAILED(hr = m_pBDANetworkProvider->QueryInterface(__uuidof(IScanningTuner), reinterpret_cast<void **>(&m_piTuner))))
+	{
+		return (log << "Failed while interfacing Tuner with Network Provider\n").Show(hr);
+	}
+	if (FAILED(m_piTuner->put_TuningSpace(m_pTuningSpace)))
+	{
+		return (log << "Failed to give tuning space to tuner.\n").Show(hr);
+	}
+	if (FAILED(hr = m_piTuner->put_TuneRequest(pTuneRequest)))
+	{
+		return (log << "Failed to submit the Tune Tequest to the Network Provider\n").Show(hr);
+	}
+
+	//We can now add the rest of the source filters
+
+	if (FAILED(hr = m_pBDACard->AddFilters(m_piGraphBuilder)))
+	{
+		return hr;
+	}
+	
+	if (FAILED(hr = graphTools.AddFilter(m_piGraphBuilder, CLSID_TSFileSink, &m_pTSFileSink, L"TSFileSink")))
+	{
+		return (log << "Cannot load TSFileSink filter\n").Show(hr);
+	}
+
+	CComQIPtr<IFileSinkFilter> piFileSinkFilter(m_pTSFileSink);
+	if (!piFileSinkFilter)
+		return (log << "Cannot QI sink filter for IFileSinkFilter interface\n").Show(hr);
+
+	USES_CONVERSION;
+
+	if (FAILED(hr = piFileSinkFilter->SetFileName(T2W(pFilename), NULL)))
+	{
+		return (log << "Cannot set TSFileSink filename\n").Show(hr);
+	}
+
+	return S_OK;
+}
+
+HRESULT	BDAChannelScan::ConnectTSFileSinkGraph()
+{
+	HRESULT hr = S_OK;
+
+	m_pBDACard->Connect(m_pBDANetworkProvider);
+
+	CComPtr <IPin> pCapturePin;
+	m_pBDACard->GetCapturePin(&pCapturePin.p);
+
+	CComPtr <IPin> pSinkPin;
+	if (FAILED(hr = graphTools.FindPin(m_pTSFileSink, L"In", &pSinkPin.p, REQUESTED_PINDIR_INPUT)))
+	{
+		return (log << "Failed to get input pin on TSFileSink\n").Show(hr);
+	}
+	
+	if (FAILED(hr = m_piGraphBuilder->ConnectDirect(pCapturePin, pSinkPin, NULL)))
+	{
+		return (log << "Failed to connect Capture filter to TSFileSink\n").Show(hr);
+	}
+
+	return hr;
+}
+
 
 HRESULT	BDAChannelScan::LockChannel(long lFrequency, long lBandwidth, BOOL &locked, BOOL &present, long &strength, long &quality)
 {

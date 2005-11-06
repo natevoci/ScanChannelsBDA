@@ -36,6 +36,7 @@ LogMessageWriter lmw;
 
 HRESULT ShowMenu();
 HRESULT GetChannelInfo(long &freq, long &band);
+HRESULT GetFileName(LPTSTR pFilename);
 
 int	_tmain(int argc, _TCHAR* argv[])
 {
@@ -107,6 +108,7 @@ HRESULT ShowMenu()
 		cout << "4. Signal Statistics" << endl;
 		cout << "5. Scan all Australian frequencies"  << endl;
 		cout << "6. Turn Verbose output " << (cBDAChannelScan->IsVerbose() ? "Off" : "On") << endl;
+		cout << "8. Test TSFileSink " << endl;
 		cout << "9. Toggle Lock Detection : ";
 		
 		switch (cBDAChannelScan->LockDetectionMode())
@@ -121,7 +123,7 @@ HRESULT ShowMenu()
 		
 		cout << "10.Exit"		 << endl;
 		cout << endl;
-		cout << "Please Select Menu(1,2,4,5,6,9,10):";
+		cout << "Please Select Menu(1,2,4,5,6,9,8,10):";
 
 		cin >> strMenuSelect;
 
@@ -164,6 +166,18 @@ HRESULT ShowMenu()
 
 		case 6:
 			cBDAChannelScan->ToggleVerbose();
+			break;
+
+		case 8:
+			{
+				GetChannelInfo(freq, band);
+				LPTSTR pFilename = new TCHAR[MAX_PATH];
+				
+				if (GetFileName(pFilename) == S_OK)
+					cBDAChannelScan->TestTSFileSink(freq, band, pFilename);
+
+				delete[] pFilename;
+			}
 			break;
 
 		case 9:
@@ -211,3 +225,24 @@ HRESULT GetChannelInfo(long &freq, long &band)
 	return S_OK;
 }
 
+HRESULT GetFileName(LPTSTR pFilename)
+{
+	pFilename[0] = '\0';
+
+    // Setup the OPENFILENAME structure
+    OPENFILENAME ofn = { sizeof(OPENFILENAME), NULL, NULL,
+                         TEXT("Timeshift Buffer Files\0*.tsbuffer\0All Files\0*.*\0\0"), NULL,
+                         0, 1,
+						 pFilename, MAX_PATH,
+						 NULL, 0,
+						 NULL,
+                         TEXT("Save As"),
+                         OFN_OVERWRITEPROMPT|OFN_HIDEREADONLY, 0, 0,
+                         TEXT(".tsbuffer"), 0, NULL, NULL };
+
+    // Display the SaveFileName dialog.
+    if( GetSaveFileName( &ofn ) == FALSE )
+		return S_FALSE;
+
+	return S_OK;
+}

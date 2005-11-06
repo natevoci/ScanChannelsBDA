@@ -913,7 +913,7 @@ HRESULT FilterGraphTools::CreateDVBTTuneRequest(CComPtr <ITuningSpace> piTuningS
 		(log << "Can't set Frequency on Locator.\n").Write();
 		return hr;
 	}
-	if FAILED(hr = pDVBTLocator->put_SymbolRate(bandwidth))
+	if FAILED(hr = pDVBTLocator->put_Bandwidth(bandwidth))
 	{
 		pDVBTLocator.Release();
 		pExTuneRequest.Release();
