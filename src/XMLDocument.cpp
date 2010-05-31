@@ -152,7 +152,7 @@ void XMLElementList::Remove(int nIndex)
 
 XMLElement *XMLElementList::Item(int nIndex)
 {
-	if ((nIndex < 0) || (nIndex >= m_elements.size()))
+	if ((nIndex < 0) || (nIndex >= (int)m_elements.size()))
 		return NULL;
 	return m_elements.at(nIndex);
 }

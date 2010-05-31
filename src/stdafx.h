@@ -5,6 +5,7 @@
 
 #pragma once
 
+#pragma warning(disable:4995 4996)
 
 #include <iostream>
 #include <tchar.h>

@@ -143,7 +143,7 @@ BOOL isWhitespace(char character)
 			(character == '\t'));
 }
 
-void skipWhitespaces(LPCSTR &str)
+void skipWhitespaces(LPSTR &str)
 {
 	while (isWhitespace(str[0]))
 		str++;
@@ -183,7 +183,7 @@ BOOL isWhitespace(wchar_t character)
 			(character == '\t'));
 }
 
-void skipWhitespaces(LPCWSTR &str)
+void skipWhitespaces(LPWSTR &str)
 {
 	while (isWhitespace(str[0]))
 		str++;
@@ -275,12 +275,12 @@ void strCopy(LPSTR &dest, long value)
 		delete[] dest;
 	BOOL bNegative = (value < 0);
 	value = abs(value);
-	long length = (long)log10(value) + (bNegative ? 2 : 1);
+	long length = (long)log10((double)value) + (bNegative ? 2 : 1);
 	dest = new char[length + 1];
 
 	for ( int i=length-1 ; i>=0 ; i-- )
 	{
-		dest[i] = '0' + (value % 10);
+		dest[i] = (CHAR)('0' + (value % 10));
 		value /= 10;
 	}
 	if (bNegative)
@@ -294,12 +294,12 @@ void strCopy(LPWSTR &dest, long value)
 		delete[] dest;
 	BOOL bNegative = (value < 0);
 	value = abs(value);
-	long length = (long)log10(value) + (bNegative ? 2 : 1);
+	long length = (long)log10((double)value) + (bNegative ? 2 : 1);
 	dest = new wchar_t[length + 1];
 
 	for ( int i=length-1 ; i>=0 ; i-- )
 	{
-		dest[i] = '0' + (value % 10);
+		dest[i] = (WCHAR)('0' + (value % 10));
 		value /= 10;
 	}
 	if (bNegative)

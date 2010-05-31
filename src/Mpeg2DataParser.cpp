@@ -250,7 +250,7 @@ void Mpeg2DataParser::ReadSection(struct section_buf *s)
 {
 	PID pid = s->pid;
 	TID tid = s->table_id;
-	DWORD dwTimeout = s->timeout * 1000;
+	DWORD dwTimeout = (DWORD)(s->timeout * 1000);
 	if (m_piIMpeg2Data != NULL)
 	{
 		HRESULT hr;
@@ -1160,7 +1160,8 @@ void Mpeg2DataParser::PrintByteArray(const BYTE *pData, long cbSize)
 	char str[9];
 	memset((char*)&str, 32, 8);
 	str[8] = '\0';
-	for (int iter = 0; iter < cbSize; iter++)
+	int iter = 0;
+	for (iter = 0; iter < cbSize; iter++)
 	{
 		int pos = iter % 8;
 
@@ -1215,7 +1216,7 @@ void Mpeg2DataParser::PaddingForNumber(long number, long totalWidth)
 {
 	long len = 0;
 	if (number != 0)
-		len = log10(((number > 0) ? number : -1 * number));
+		len = (long)log10((double)((number > 0) ? number : -1 * number));
 	if (number < 0)
 		len++;
 	len++;

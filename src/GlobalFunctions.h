@@ -45,12 +45,12 @@ long wcsToColor(LPWSTR string);
 
 BOOL findchr(char character, LPCSTR strCharSet);
 BOOL isWhitespace(char character);
-void skipWhitespaces(LPCSTR &str);
+void skipWhitespaces(LPSTR &str);
 LPSTR findEndOfTokenName(LPCSTR str);
 
 BOOL findchr(wchar_t character, LPCWSTR strCharSet);
 BOOL isWhitespace(wchar_t character);
-void skipWhitespaces(LPCWSTR &str);
+void skipWhitespaces(LPWSTR &str);
 LPWSTR findEndOfTokenName(LPCWSTR str);
 
 void strCopy(LPSTR &dest, LPCSTR src, long length);

@@ -294,7 +294,7 @@ HRESULT BDACard::GetSignalStatistics(BOOL &locked, BOOL &present, long &strength
 		return (log << "Cannot get node types\n").Show(hr);
 	}
 
-	for ( int i=0 ; i<NodeTypes ; i++ )
+	for ( int i=0 ; i<(int)NodeTypes ; i++ )
 	{
 		hr = bdaNetTop->GetControlNode(0, 1, NodeType[i], &iNode);
 		if (hr == S_OK)
