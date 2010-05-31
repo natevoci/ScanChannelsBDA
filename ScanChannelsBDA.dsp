@@ -188,6 +188,10 @@ SOURCE=.\src\GlobalFunctions.h
 # End Source File
 # Begin Source File
 
+SOURCE=.\src\IDWOSDDataList.h
+# End Source File
+# Begin Source File
+
 SOURCE=.\src\LogMessage.h
 # End Source File
 # Begin Source File
