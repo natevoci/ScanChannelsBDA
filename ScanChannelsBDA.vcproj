@@ -69,10 +69,11 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="strmbase.lib odbc32.lib odbccp32.lib version.lib"
+				AdditionalDependencies="strmbasd.lib odbc32.lib odbccp32.lib version.lib winmm.lib"
 				OutputFile=".\bin/ScanChannelsBDA.exe"
 				LinkIncremental="2"
 				SuppressStartupBanner="true"
+				IgnoreDefaultLibraryNames="MSVCRTD.lib"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile=".\bin/ScanChannelsBDA.pdb"
 				SubSystem="1"
@@ -160,7 +161,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="strmbase.lib odbc32.lib odbccp32.lib version.lib"
+				AdditionalDependencies="strmbase.lib odbc32.lib odbccp32.lib version.lib winmm.lib"
 				OutputFile=".\bin/ScanChannelsBDA.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"

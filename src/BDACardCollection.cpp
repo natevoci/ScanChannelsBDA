@@ -20,8 +20,6 @@
  *	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-//this is a file from DigitalWatch 2 that i've hacked up to work here.
-
 #include "BDACardCollection.h"
 #include "StdAfx.h"
 #include "ParseLine.h"
@@ -37,16 +35,31 @@
 BDACardCollection::BDACardCollection()
 {
 	m_filename = NULL;
+	m_dataListName = NULL;
 }
 
 BDACardCollection::~BDACardCollection()
 {
+	Destroy();
+	if (m_dataListName)
+		delete[] m_dataListName;
+}
+
+HRESULT BDACardCollection::Destroy()
+{
 	std::vector<BDACard *>::iterator it = cards.begin();
 	for ( ; it != cards.end() ; it++ )
 	{
-		delete *it;
+		if (*it) delete *it;
 	}
 	cards.clear();
+
+	if (m_filename)
+		delete[] m_filename;
+
+	m_filename = NULL;
+
+	return S_OK;
 }
 
 void BDACardCollection::SetLogCallback(LogMessageCallback *callback)
@@ -63,15 +76,76 @@ void BDACardCollection::SetLogCallback(LogMessageCallback *callback)
 	}
 }
 
-LogMessage BDACardCollection::get_Logger()
+LPWSTR BDACardCollection::GetListName()
 {
-	return log;
+	if (!m_dataListName)
+		strCopy(m_dataListName, L"DVBTDeviceInfo");
+	return m_dataListName;
+}
+
+LPWSTR BDACardCollection::GetListItem(LPWSTR name, long nIndex)
+{
+	CAutoLock listLock(&m_listLock);
+
+	if (nIndex >= (long)cards.size())
+		return NULL;
+
+	long startsWithLength = strStartsWith(name, m_dataListName);
+	if (startsWithLength > 0)
+	{
+		name += startsWithLength;
+
+		LPWSTR pValue = NULL;
+		BDACard *item = cards.at(nIndex);
+		if (_wcsicmp(name, L".index") == 0)
+		{
+			strCopy(pValue, item->index);
+			return pValue;
+		}
+		else if (_wcsicmp(name, L".active") == 0)
+		{
+			strCopy(pValue, item->bActive);
+			return pValue;
+		}
+		else if (_wcsicmp(name, L".name") == 0)
+		{
+			strCopy(pValue, item->tunerDevice.strFriendlyName);
+			return pValue;
+		}
+	}
+	return NULL;
+}
+
+HRESULT BDACardCollection::FindListItem(LPWSTR name, int *pIndex)
+{
+	if (!pIndex)
+        return E_INVALIDARG;
+
+	*pIndex = 0;
+
+	CAutoLock listLock(&m_listLock);
+	std::vector<BDACard *>::iterator it = cards.begin();
+	for ( ; it < cards.end() ; it++ )
+	{
+		if (_wcsicmp((*it)->tunerDevice.strFriendlyName, name) == 0)
+			return S_OK;
+
+		(*pIndex)++;
+	}
+
+	return E_FAIL;
+}
+
+long BDACardCollection::GetListSize()
+{
+	CAutoLock listLock(&m_listLock);
+	return cards.size();
 }
 
 BOOL BDACardCollection::LoadCards()
 {
 	if (m_filename)
-		delete m_filename;
+		delete[] m_filename;
 	m_filename = NULL;
 
 	return LoadCardsFromHardware();
@@ -136,6 +210,95 @@ void BDACardCollection::AddCardToList(BDACard* currCard)
 	}
 }
 
+HRESULT BDACardCollection::UpdateCardStatus(int index, int status)
+{
+	HRESULT hr = S_FALSE;
+
+	CAutoLock listLock(&m_listLock);
+	std::vector<BDACard *>::iterator it = cards.begin();
+	for ( ; it < cards.end() ; it++ )
+	{
+		if ((*it)->index == index)
+		{
+			(*it)->bActive = status;
+			if (SaveCards())
+				return S_OK;
+		}
+	};
+	return hr;
+}
+
+HRESULT BDACardCollection::SetCardPosition(int index, int dir)
+{
+	HRESULT hr = S_FALSE;
+
+	int count = 1;
+	CAutoLock listLock(&m_listLock);
+	std::vector<BDACard *>::iterator it = cards.begin();
+	for ( ; it < cards.end() ; it++ )
+	{
+		if ((*it)->index == index)
+		{
+			BDACard *card = (*it);
+			if (dir)
+			{
+				if (count > 1)
+				{
+					it--;
+					cards.insert(it, card);
+					it++;
+					it++;
+					cards.erase(it);
+					if (SaveCards())
+						return S_OK;
+				}
+			}
+			else
+			{
+				if (count < (int)cards.size())
+				{
+					it++;
+					it++;
+					cards.insert(it, card);
+					it--;
+					it--;
+					cards.erase(it);
+					if (SaveCards())
+						return S_OK;
+				}
+			}
+		}
+		count++;
+	};
+	return hr;
+}
+
+HRESULT BDACardCollection::RemoveCard(int index)
+{
+	HRESULT hr = S_FALSE;
+
+	CAutoLock listLock(&m_listLock);
+	std::vector<BDACard *>::iterator it = cards.begin();
+	for ( ; it < cards.end() ; it++ )
+	{
+		if ((*it)->index == index)
+		{
+			BDACard *card = (*it);
+			cards.erase(it);
+			SaveCards();
+//			cards.insert(it, card);
+			return S_OK;
+		}
+	};
+	return hr;
+}
+
+HRESULT BDACardCollection::ReloadCards()
+{
+	LoadCardsFromHardware();
+	return S_OK;
+}
+  
 BOOL BDACardCollection::SaveCards(LPWSTR filename)
 {
 	XMLDocument file;
@@ -190,7 +353,12 @@ BOOL BDACardCollection::LoadCardsFromHardware()
 		if (bdaCard)
 		{
 			(log << "This tuner was loaded from file\n").Write();
-			bdaCard->bDetected = TRUE;
+
+			// If the card was not detected last time DW ran then we'll activate it.
+			if (bdaCard->nDetected == 2)
+				bdaCard->bActive = TRUE;
+
+			bdaCard->nDetected = 1;
 			//TODO: maybe?? verify tuner can connect to the capture filter.
 		}
 		else
@@ -205,7 +373,7 @@ BOOL BDACardCollection::LoadCardsFromHardware()
 
 				bdaCard->bActive = TRUE;
 				bdaCard->bNew = TRUE;
-				bdaCard->bDetected = TRUE;
+				bdaCard->nDetected = 1;
 
 				bdaCard->tunerDevice = *pTunerDevice;
 				if (pDemodDevice)
@@ -233,6 +401,26 @@ BOOL BDACardCollection::LoadCardsFromHardware()
 
 	if (cards.size() == 0)
 		return (log << "No cards found\n").Show(FALSE);
+
+	int count = 1;
+	// Deactivate cards that were detected last time but not this time.
+	std::vector<BDACard *>::iterator it = cards.begin();
+	for ( ; it != cards.end() ; it++ )
+	{
+		BDACard *card = *it;
+		if (card->nDetected == 3)
+		{
+			card->bActive = FALSE;
+			card->nDetected = 0;
+		}
+		else if (card->nDetected == 2)
+			card->nDetected = 0;
+		else
+		{
+			card->index = count;
+			count++;
+		}
+	}
 
 	indent.Release();
 	(log << "Finished Checking for new BDA DVB-T Cards\n").Write();
@@ -336,6 +524,8 @@ BOOL BDACardCollection::FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, 
 		LogMessageIndent indent(&log);
 
 		DirectShowSystemDeviceEnumerator enumerator(KSCATEGORY_BDA_RECEIVER_COMPONENT);
+		enumerator.SetLogCallback(m_pLogCallback);
+
 		*ppDemodDevice = NULL;
 		while (enumerator.Next(ppDemodDevice) == S_OK)
 		{
@@ -344,6 +534,18 @@ BOOL BDACardCollection::FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, 
 			(log << (*ppDemodDevice)->strDevicePath << "\n").Write();
 			LogMessageIndent indentC(&log);
 
+			if SUCCEEDED(hr = graphTools.AddFilterByDevicePath(piGraphBuilder, &piBDADemod, (*ppDemodDevice)->strDevicePath, (*ppDemodDevice)->strFriendlyName))
+			{
+				if SUCCEEDED(hr = graphTools.ConnectFilters(piGraphBuilder, piBDATuner, piBDADemod))
+				{
+					(log << "SUCCESS\n").Write();
+					bFoundDemod = TRUE;
+					break;
+				}
+				else
+					(log << "Connection failed, trying next card\n").Write();
+			}
+/*
 			if FAILED(hr = graphTools.AddFilterByDevicePath(piGraphBuilder, &piBDADemod, (*ppDemodDevice)->strDevicePath, (*ppDemodDevice)->strFriendlyName))
 			{
 				delete *ppDemodDevice;
@@ -357,8 +559,7 @@ BOOL BDACardCollection::FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, 
 				bFoundDemod = TRUE;
 				break;
 			}
-
-			//(log << "Connection failed, trying next card\n").Write();
+*/
 			piBDADemod.Release();
 			delete *ppDemodDevice;
 			*ppDemodDevice = NULL;
@@ -388,6 +589,16 @@ BOOL BDACardCollection::FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, 
 				(log << (*ppCaptureDevice)->strDevicePath << "\n").Write();
 				LogMessageIndent indentD(&log);
 
+				if SUCCEEDED(hr = graphTools.AddFilterByDevicePath(piGraphBuilder, &piBDACapture, (*ppCaptureDevice)->strDevicePath, (*ppCaptureDevice)->strFriendlyName))
+				{
+					if SUCCEEDED(hr = graphTools.ConnectFilters(piGraphBuilder, piBDADemod, piBDACapture))
+					{
+						(log << "SUCCESS\n").Write();
+						bFoundCapture = TRUE;
+						break;
+					}
+				}
+/*
 				if FAILED(hr = graphTools.AddFilterByDevicePath(piGraphBuilder, &piBDACapture, (*ppCaptureDevice)->strDevicePath, (*ppCaptureDevice)->strFriendlyName))
 				{
 					delete *ppCaptureDevice;
@@ -401,7 +612,7 @@ BOOL BDACardCollection::FindCaptureDevice(DirectShowSystemDevice* pTunerDevice, 
 					bFoundCapture = TRUE;
 					break;
 				}
-
+*/
 				//(log << "Connection failed, trying next card\n").Write();
 				piBDACapture.Release();
 				delete *ppCaptureDevice;

@@ -22,7 +22,6 @@
 
 #include "StdAfx.h"
 #include "GlobalFunctions.h"
-#include <math.h>
 
 void PStringCopy(char** destString, char* srcString)
 {
@@ -126,184 +125,65 @@ long wcsToColor(LPWSTR str)
 	return result;
 }
 
-BOOL findchr(char character, LPCSTR strCharSet)
-{
-	int length = strlen(strCharSet);
-	for ( int i=0 ; i<length ; i++ )
-	{
-		if (strCharSet[i] == character)
-			return TRUE;
-	}
-	return FALSE;
-}
-
-BOOL isWhitespace(char character)
-{
-	return ((character == ' ') ||
-			(character == '\t'));
-}
-
-void skipWhitespaces(LPSTR &str)
-{
-	while (isWhitespace(str[0]))
-		str++;
-}
-
-LPSTR findEndOfTokenName(LPCSTR str)
-{
-	int length = strlen(str);
-	for ( int i=0 ; i<=length ; i++ )
-	{
-		if (((str[i] < 'A') || (str[i] > 'Z')) &&
-			((str[i] < 'a') || (str[i] > 'z')) &&
-			((str[i] < '0') || (str[i] > '9')) &&
-			(str[i] != '_') &&
-			(str[i] != '$')
-		   )
-		   return (LPSTR)&str[i];
-	}
-	//Should never get to here because the for loop includes the '\0' character
-	return NULL;
-}
-
-BOOL findchr(wchar_t character, LPCWSTR strCharSet)
-{
-	int length = wcslen(strCharSet);
-	for ( int i=0 ; i<length ; i++ )
-	{
-		if (strCharSet[i] == character)
-			return TRUE;
-	}
-	return FALSE;
-}
-
-BOOL isWhitespace(wchar_t character)
-{
-	return ((character == ' ') ||
-			(character == '\t'));
-}
-
-void skipWhitespaces(LPWSTR &str)
-{
-	while (isWhitespace(str[0]))
-		str++;
-}
-
-LPWSTR findEndOfTokenName(LPCWSTR str)
-{
-	int length = wcslen(str);
-	for ( int i=0 ; i<=length ; i++ )
-	{
-		if (((str[i] < 'A') || (str[i] > 'Z')) &&
-			((str[i] < 'a') || (str[i] > 'z')) &&
-			((str[i] < '0') || (str[i] > '9')) &&
-			(str[i] != '_') &&
-			(str[i] != '$')
-		   )
-		   return (LPWSTR)&str[i];
-	}
-	//Should never get to here because the for loop includes the '\0' character
-	return NULL;
-}
-
-void strCopy(LPSTR &dest, LPCSTR src, long length)
+void strCopyHex(LPWSTR &dest, long value)
 {
 	if (dest)
 		delete[] dest;
-	if (length < 0)
-		length = strlen(src);
-	dest = new char[length + 1];
-	memcpy(dest, src, length);
-	dest[length] = 0;
-}
 
-void strCopy(LPWSTR &dest, LPCWSTR src, long length)
-{
-	if (dest)
-		delete[] dest;
-	if (length < 0)
-		length = wcslen(src);
+	unsigned long rem;
+	long length = 0;
+	for ( rem=value; rem>0; rem = rem>>4 )
+	{
+		length++;
+	}
+	length += 2; // 0x
+
 	dest = new wchar_t[length + 1];
-	memcpy(dest, src, length*2);
 	dest[length] = 0;
-}
+	dest[0] = '0';
+	dest[1] = 'x';
 
-void strCopyA2W(LPWSTR &dest, LPCSTR src, long length)
-{
-	if (dest)
-		delete[] dest;
-	if (length < 0)
-		length = strlen(src);
-	dest = new wchar_t[length + 1];
-	mbstowcs(dest, src, length);
-	dest[length] = 0;
-}
-
-void strCopyW2A(LPSTR &dest, LPCWSTR src, long length)
-{
-	if (dest)
-		delete[] dest;
-	if (length < 0)
-		length = wcslen(src);
-	dest = new char[length + 1];
-	wcstombs(dest, src, length);
-}
-
-void strCopy(LPSTR &dest, LPCSTR src)
-{
-	strCopy(dest, src, -1);
-}
-
-void strCopy(LPWSTR &dest, LPCWSTR src)
-{
-	strCopy(dest, src, -1);
-}
-
-void strCopyA2W(LPWSTR &dest, LPCSTR src)
-{
-	strCopyA2W(dest, src, -1);
-}
-
-void strCopyW2A(LPSTR &dest, LPCWSTR src)
-{
-	strCopyW2A(dest, src, -1);
-}
-
-void strCopy(LPSTR &dest, long value)
-{
-	if (dest)
-		delete[] dest;
-	BOOL bNegative = (value < 0);
-	value = abs(value);
-	long length = (long)log10((double)value) + (bNegative ? 2 : 1);
-	dest = new char[length + 1];
-
-	for ( int i=length-1 ; i>=0 ; i-- )
+	for ( rem=value; rem>0; rem = rem>>4 )
 	{
-		dest[i] = (CHAR)('0' + (value % 10));
-		value /= 10;
+		length--;
+		unsigned short digit = (unsigned short)(rem & 0x000F);
+		if (digit < 10)
+			dest[length] = '0' + digit;
+		else
+			dest[length] = 'A' + digit - 10;
 	}
-	if (bNegative)
-		dest[0] = '-';
-	dest[length] = 0;
 }
 
-void strCopy(LPWSTR &dest, long value)
+long StringToLong(LPWSTR pValue)
 {
-	if (dest)
-		delete[] dest;
-	BOOL bNegative = (value < 0);
-	value = abs(value);
-	long length = (long)log10((double)value) + (bNegative ? 2 : 1);
-	dest = new wchar_t[length + 1];
+	if (pValue[0] == '\0')
+		return 0;
+	if ((pValue[0] != '0') || (pValue[1] != 'x'))
+		return _wtol(pValue);
 
-	for ( int i=length-1 ; i>=0 ; i-- )
+	int i=2;
+	long result = 0;
+	long val;
+	while ((val = pValue[i++]) != '\0')
 	{
-		dest[i] = (WCHAR)('0' + (value % 10));
-		value /= 10;
+		result *= 16;
+		val -= '0';
+		if (val < 0)
+			return 0;
+		if (val > 9)
+		{
+			val += '0' - 'A' + 10;
+			if (val < 10)
+				return 0;
+			if (val > 16)
+			{
+				val += 'A' - 'a';
+				if ((val < 10) || (val > 16))
+					return 0;
+			}
+		}
+		result += val;
 	}
-	if (bNegative)
-		dest[0] = '-';
-	dest[length] = 0;
+	return result;
 }
 

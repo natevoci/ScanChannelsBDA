@@ -125,6 +125,7 @@ void LogMessage::RemoveCallback(int handle)
 		if ((*it)->GetHandle() == handle)
 		{
 			callbacks.erase(it);
+			it = callbacks.begin();
 			continue;
 		}
 		it++;

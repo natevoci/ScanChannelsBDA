@@ -1174,7 +1174,7 @@ void Mpeg2DataParser::PrintByteArray(const BYTE *pData, long cbSize)
 
 		if (pos == 7)
 		{
-			verbose.showf("  %S\n", (char*)&str);
+			verbose.showf("  %s\n", (char*)&str);
 			memset((char*)&str, 32, 8);
 		}
 	} 
@@ -1183,7 +1183,7 @@ void Mpeg2DataParser::PrintByteArray(const BYTE *pData, long cbSize)
 	{
 		for (int i=0 ; i< missing ; i++ )
 			verbose.showf("     ");
-		verbose.showf("  %S\n", (char*)&str);
+		verbose.showf("  %s\n", (char*)&str);
 	}
 }
 

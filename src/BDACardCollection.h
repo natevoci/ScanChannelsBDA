@@ -27,23 +27,35 @@
 #include "BDACard.h"
 #include <vector>
 #include "LogMessage.h"
+#include "IDWOSDDataList.h"
 #include "FilterGraphTools.h"
 
-class BDACardCollection : public LogMessageCaller
+class BDACardCollection : public LogMessageCaller, public IDWOSDDataList
 {
 public:
 	BDACardCollection();
 	virtual ~BDACardCollection();
 
 	virtual void SetLogCallback(LogMessageCallback *callback);
+	virtual HRESULT Destroy();
 
 	BOOL LoadCards();
 	BOOL LoadCards(LPWSTR filename);
+	HRESULT UpdateCardStatus(int index, int status);
+	HRESULT SetCardPosition(int index, int dir);
+	HRESULT RemoveCard(int index);
+	HRESULT ReloadCards();
 	BOOL SaveCards(LPWSTR filename = NULL);
 
 	std::vector<BDACard *> cards;
 
-	LogMessage get_Logger();
+	//IDWOSDDataList Methods
+	virtual LPWSTR GetListName();
+	virtual LPWSTR GetListItem(LPWSTR name, long nIndex = 0);
+	virtual long GetListSize();
+	virtual HRESULT FindListItem(LPWSTR name, int *pIndex);
+	CCritSec m_listLock;
+
 
 private:
 	BOOL LoadCardsFromHardware();
@@ -54,6 +66,8 @@ private:
 	LPWSTR m_filename;
 
 	FilterGraphTools graphTools;
+
+	LPWSTR m_dataListName;
 };
 
 #endif
