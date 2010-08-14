@@ -190,21 +190,25 @@ HRESULT BDAChannelScan::SetupGraphForTSFileSink(long freq, long band, LPTSTR pFi
 {
 	HRESULT hr = S_OK;
 
+	(log << "Creating graph\n").Show();
 	if (FAILED(hr = CreateGraph()))
 	{
 		return (log << "Failed to create graph.\n").Show(hr);
 	}
 	
+	(log << "Building graph\n").Show();
 	if (FAILED(hr = BuildTSFileSinkGraph(freq, band, pFilename)))
 	{
 		return (log << "Failed to add filters to graph.\n").Show(hr);
 	}
 
+	(log << "Connecting \n").Show();
 	if (FAILED(hr = ConnectTSFileSinkGraph()))
 	{
 		return (log << "Failed to connect filters in graph.\n").Show(hr);
 	}
 
+	(log << "Starting graph\n").Show();
 	if (StartGraph() == FALSE)
 	{
 		return (log << "Failed to start the graph\n").Show(hr);
@@ -255,17 +259,23 @@ void BDAChannelScan::DestroyGraph()
 
 void BDAChannelScan::DestroyGraphForTSFileSink()
 {
+	(log << "Stopping graph\n").Show();
 	StopGraph();
 
+	(log << "Disconnecting graph\n").Show();
 	graphTools.DisconnectAllPins(m_piGraphBuilder);
 
+	(log << "Removing BDA filters\n").Show();
 	if (m_pBDACard)
 		m_pBDACard->RemoveFilters();
 
 	m_pTuningSpace.Release();
 	m_piTuner.Release();
+
+	(log << "Removing remaining filters\n").Show();
 	graphTools.RemoveAllFilters(m_piGraphBuilder);
 
+	(log << "Releasing COM objects\n").Show();
 	m_pTSFileSink.Release();
 
 	try
@@ -443,7 +453,7 @@ HRESULT BDAChannelScan::SignalStatistics(long frequency, long bandwidth)
 			 << " stength = " << nStrength
 			 << " quality = " << nQuality << "\n").Show();
 
-		if (::WaitForSingleObject(hInput, 1000) == WAIT_OBJECT_0)
+		if (::WaitForSingleObject(hInput, 500) == WAIT_OBJECT_0)
 		{
 			ReadConsoleInput(hInput, irInBuf, 1, &numRead);
 			if ((numRead == 1) && (irInBuf[0].EventType == KEY_EVENT)) // make sure it's a key event, not a mouse or focus event
