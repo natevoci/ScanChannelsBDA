@@ -484,8 +484,15 @@ HRESULT BDAChannelScan::TestTSFileSink(long freq, long band, LPTSTR pFilename)
 		if (::WaitForSingleObject(hInput, 1000) == WAIT_OBJECT_0)
 		{
 			ReadConsoleInput(hInput, irInBuf, 1, &numRead);
-			if ((numRead == 1) && (irInBuf[0].EventType == KEY_EVENT)) // make sure it's a key event, not a mouse or focus event
-				bKeyboardEvent = TRUE;
+ 			if (numRead == 1)
+			{
+				if (irInBuf[0].EventType == KEY_EVENT) // make sure it's a key event, not a mouse or focus event
+				{
+					if ((irInBuf[0].Event.KeyEvent.bKeyDown == TRUE) &&
+						(irInBuf[0].Event.KeyEvent.wVirtualKeyCode != 0))
+						bKeyboardEvent = TRUE;
+				}
+			}
 		}
 	} while (!bKeyboardEvent);
 
