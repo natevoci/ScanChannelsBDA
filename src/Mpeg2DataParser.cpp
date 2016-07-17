@@ -52,9 +52,9 @@ Mpeg2DataParser::Mpeg2DataParser()
 	m_networkNumber = 0;
 	current_tp = NULL;
 
-	//verbose = FALSE;
 	m_bThreadStarted = FALSE;
 	m_bActivity = FALSE;
+	m_bVerbose = FALSE;
 }
 
 Mpeg2DataParser::~Mpeg2DataParser()
@@ -263,8 +263,6 @@ void Mpeg2DataParser::ReadSection(struct section_buf *s)
 			{
 				verbose.showf(_T("\n%d section(s) found for pid=%.4x, tid=%.2x\n"), cSections, pid, tid);
 			
-				verbose.showf("pid \n");
-
 				for (WORD i = 0; i < cSections; i++)
 				{
 					// Iterate through the list of sections.
@@ -344,6 +342,68 @@ struct transponder *Mpeg2DataParser::find_transponder(int transport_stream_id)
 	return NULL;
 }
 
+void Mpeg2DataParser::parse_audio_stream_descriptor (const unsigned char *buf, struct service *s)
+{
+	unsigned char len = buf [1];
+
+	buf += 2;
+
+	if (len >= 1)
+	{
+		unsigned char free_format_flag = (buf[0] & 0x80) >> 7;
+		unsigned char id = (buf[0] & 0x40) >> 6;
+		unsigned char layer = (buf[0] & 0x30) >> 4;
+		unsigned char variable_rate = (buf[0] & 0x0c) >> 2;
+
+		verbose.showf("    free_format=%d, id=%d, layer=%d, variable_rate=%d\n", free_format_flag, id, layer, variable_rate);
+	}
+}
+
+void Mpeg2DataParser::parse_ac3_stream_descriptor (const unsigned char *buf, struct service *s)
+{
+	unsigned char len = buf [1];
+
+	buf += 2;
+
+	if (len >= 1)
+	{
+		unsigned char component_type_flag = (buf[0] & 0x80) >> 7;
+		unsigned char bsid_flag = (buf[0] & 0x40) >> 6;
+		unsigned char mainid_flag = (buf[0] & 0x20) >> 5;
+		unsigned char asvc_flag = (buf[0] & 0x10) >> 4;
+
+		verbose.showf("    component_type_flag=%d, bsid_flag=%d, mainid_flag=%d, asvc_flag=%d\n", component_type_flag, bsid_flag, mainid_flag, asvc_flag);
+
+		len--;
+		buf += 1;
+
+		if ((component_type_flag == 1) && (len >= 1))
+		{
+			verbose.showf("    component_type=%d\n", buf[0]);
+			len--;
+			buf += 1;
+		}
+		if ((bsid_flag == 1) && (len >= 1))
+		{
+			verbose.showf("    bsid=%d\n", buf[0]);
+			len--;
+			buf += 1;
+		}
+		if ((mainid_flag == 1) && (len >= 1))
+		{
+			verbose.showf("    mainid=%d\n", buf[0]);
+			len--;
+			buf += 1;
+		}
+		if ((asvc_flag == 1) && (len >= 1))
+		{
+			verbose.showf("    asvc=%d\n", buf[0]);
+			len--;
+			buf += 1;
+		}
+	}
+}
+
 void Mpeg2DataParser::parse_iso639_language_descriptor (const unsigned char *buf, struct service *s)
 {
 	unsigned char len = buf [1];
@@ -352,7 +412,23 @@ void Mpeg2DataParser::parse_iso639_language_descriptor (const unsigned char *buf
 
 	if (len >= 4)
 	{
-		verbose.showf("    LANG=%.3s %d\n", buf, buf[3]);
+		output.showf("    LANG=%.3s", buf);
+
+		switch (buf[3])
+		{
+			case 0x01:
+				output.showf(" (clean effects)", buf);
+				break;
+			case 0x02:
+				output.showf(" (hearing impaired)", buf);
+				break;
+			case 0x03:
+				output.showf(" (visual impaired commentary)", buf);
+				break;
+			default:
+				break;
+		}
+
 		memcpy(s->audio_lang[s->audio_num], buf, 3);
 #if 0
 		/* seems like the audio_type is wrong all over the place */
@@ -667,8 +743,16 @@ void Mpeg2DataParser::parse_descriptorsPMT(const unsigned char *buf, int remaini
 
 		switch (descriptor_tag)
 		{
+			case 0x03:
+				parse_audio_stream_descriptor (buf, s);
+				break;
+
 			case 0x0a:
 				parse_iso639_language_descriptor (buf, s);
+				break;
+
+			case 0x6a:
+				parse_ac3_stream_descriptor(buf, s);
 				break;
 
 			default:
@@ -728,7 +812,7 @@ void Mpeg2DataParser::parse_descriptorsNIT(const unsigned char *buf, int remaini
 				 * so we parse this only if the user says so to avoid
 				 * problems when 0x83 is something entirely different... */
 				//if (vdr_dump_channum)
-				verbose.showf("  Found a terrestrial uk channel number\n");
+				verbose.showf("  Found a terrestrial logical channel number\n");
 				parse_terrestrial_uk_channel_number (buf, tp);
 				break;
 
@@ -845,6 +929,16 @@ void Mpeg2DataParser::parse_pmt (const unsigned char *buf, int section_length, i
 
 	s->pcr_pid = ((buf[0] & 0x1f) << 8) | buf[1];
 
+	output.showf("Channel %d - %s - service_id 0x%04x (%s%s)\n",
+				s->channel_num,
+				s->service_name,
+				s->service_id,
+				s->running == RM_NOT_RUNNING ? "not running" :
+				s->running == RM_STARTS_SOON ? "starts soon" :
+				s->running == RM_PAUSING     ? "pausing" :
+				s->running == RM_RUNNING     ? "running" : "???",
+				s->scrambled ? ", scrambled" : "");
+
 	program_info_len = ((buf[2] & 0x0f) << 8) | buf[3];
 
 	buf += program_info_len + 4;
@@ -854,53 +948,160 @@ void Mpeg2DataParser::parse_pmt (const unsigned char *buf, int section_length, i
 		int ES_info_len = ((buf[3] & 0x0f) << 8) | buf[4];
 		int elementary_pid = ((buf[1] & 0x1f) << 8) | buf[2];
 		int streamType = buf[0];
+		LPSTR videoType = NULL;
+		LPSTR audioType = NULL;
 		buf += 5;
 		section_length -= 5;
 
+		// Official stream list ISO/IEC 13818-1
+		// Ammendments ITU-T H.222.0 Amendment 2 08/2007
+		// Unofficial stream type list https://en.wikipedia.org/wiki/Program-specific_information
+		// 
 		switch (streamType) {
-		case 0x01:
-		case 0x02:
-			verbose.showf("  VIDEO     : PID 0x%04x\n", elementary_pid);
+			case 0x01: // ISO/IEC 11172-2 (MPEG-1 video) in a packetized stream
+				videoType = "MPEG-1 video";
+				break;
+			case 0x02: // ITU-T Rec. H.262 and ISO/IEC 13818-2 (MPEG-2 higher rate interlaced video) in a packetized stream
+				videoType = "MPEG-2 video";
+				break;
+			case 0x10: // ISO/IEC 14496-2 (MPEG-4 H.263 based video) in a packetized stream
+				videoType = "MPEG-4 video";
+				break;
+			case 0x1b: // ITU-T Rec. H.264 and ISO/IEC 14496-10 (lower bit-rate video) in a packetized stream
+			case 0xdb: // ITU-T Rec. H.264 and ISO/IEC 14496-10 with AES-128-CBC slice encryption in a packetized stream
+				videoType = "H.264 video";
+				break;
+			case 0x24: // ITU-T Rec. H.265 and ISO/IEC 23008-2 (Ultra HD video) in a packetized stream
+				videoType = "H.265 UHD video";
+				break;
+			case 0xd1: // BBC Dirac (Ultra HD video) in a packetized stream
+				videoType = "BBC Dirac UHD video";
+				break;
+			case 0x42: // Chinese Video Standard in a packetized stream
+			case 0xea: // Microsoft Windows Media Video 9 (lower bit-rate video) in a packetized stream
+				videoType = "";
+				break;
+
+
+			case 0x03: // ISO/IEC 11172-3 (MPEG-1 audio) in a packetized stream
+				audioType = "MPEG-1 audio";
+				break;
+			case 0x04: // ISO/IEC 13818-3 (MPEG-2 halved sample rate audio) in a packetized stream
+				audioType = "MPEG-2 audio";
+				break;
+			case 0x11: // ISO/IEC 14496-3 Audio with the LATMtransport syntax as defined in ISO/IEC 14496-3/Amd.1 
+			case 0x1c: // ISO/IEC 14496-3 Audio, without using any additional transport syntax, such as DST, ALS and SLS
+				audioType = "14496-3 audio";
+				break;
+			case 0x80: // ITU-T Rec. H.262 and ISO/IEC 13818-2 for DigiCipher II or PCM audio for Blu-ray in a packetized stream
+				audioType = "H.262 audio";
+				break;
+			case 0x81: // Dolby Digital up to six channel audio for ATSC and Blu-ray in a packetized stream
+			case 0xc1: // Dolby Digital up to six channel audio with AES-128-CBC data encryption in a packetized stream
+				audioType = "Dolby Digital";
+				break;
+			case 0x82: // SCTE subtitle or DTS 6 channel audio for Blu-ray in a packetized stream
+				audioType = "SCTE subtitle or DTS 6 channel audio";
+				break;
+			case 0x83: // Dolby TrueHD lossless audio for Blu-ray in a packetized stream
+				audioType = "Dolby TrueHD";
+				break;
+			case 0x84: // Dolby Digital Plus up to 16 channel audio for Blu-ray in a packetized stream
+			case 0x87: // Dolby Digital Plus up to 16 channel audio for ATSC in a packetized stream
+				audioType = "Dolby Digital Plus";
+				break;
+			case 0x85: // DTS 8 channel audio for Blu-ray in a packetized stream
+			case 0x86: // SCTE-35[4] digital program insertion cue message DTS 8 channel lossless audio for Blu-ray in a packetized stream
+				audioType = "DTS 8 channel audio";
+				break;
+			case 0xc2: // ATSC DSM CC synchronous data or Dolby Digital Plus up to 16 channel audio with AES-128-CBC data encryption in a packetized stream
+				audioType = "ATSC DSM CC synchronous data or Dolby Digital Plus";
+				break;
+			case 0xcf: // ISO/IEC 13818-7 ADTS AAC with AES-128-CBC frame encryption in a packetized stream
+				audioType = "AAC audio";
+				break;
+
+
+			case 0x05: // ITU-T Rec. H.222.0 | ISO/IEC 13818-1 private_sections
+				output.showf("  Private    : PID 0x%04x\n", elementary_pid);
+				verbose.showf("    type=0x%02x\n", streamType);
+				break;
+			case 0x07: // ISO/IEC 13522 (MHEG) in a packetized stream
+				output.showf("  MHEG       : PID 0x%04x\n", elementary_pid);
+				verbose.showf("    type=0x%02x\n", streamType);
+				break;
+			case 0x08: // ITU-T Rec. H.222 and ISO/IEC 13818-1 DSM CC in a packetized stream
+			case 0x0a: // ISO/IEC 13818-6 type A
+			case 0x0b: // ISO/IEC 13818-6 type B
+			case 0x0c: // ISO/IEC 13818-6 type C
+			case 0x0d: // ISO/IEC 13818-6 type D
+				output.showf("  DSM-CC     : PID 0x%04x\n", elementary_pid);
+				verbose.showf("    type=0x%02x\n", streamType);
+				break;
+			case 0x1d: // ISO/IEC 14496-17 Text
+				output.showf("  Text       : PID 0x%04x\n", elementary_pid);
+				verbose.showf("    type=0x%02x\n", streamType);
+				break;
+			case 0x06: // ITU-T Rec. H.222 and ISO/IEC 13818-1 (MPEG-2 packetized data) privately defined (i.e., DVB subtitles/VBI and AC-3)
+				if (find_descriptor(0x56, buf, ES_info_len, NULL, NULL)) {
+					output.showf("  TELETEXT   : PID 0x%04x\n", elementary_pid);
+					verbose.showf("    type=0x%02x 0x56\n", streamType);
+					s->teletext_pid = elementary_pid;
+					break;
+				}
+				else if (find_descriptor(0x59, buf, ES_info_len, NULL, NULL)) {
+					/* Note: The subtitling descriptor can also signal
+					 * teletext subtitling, but then the teletext descriptor
+					 * will also be present; so we can be quite confident
+					 * that we catch DVB subtitling streams only here, w/o
+					 * parsing the descriptor. */
+					output.showf("  SUBTITLING : PID 0x%04x\n", elementary_pid);
+					verbose.showf("    type=0x%02x 0x59\n", streamType);
+					s->subtitling_pid = elementary_pid;
+					break;
+				}
+				else if (find_descriptor(0x6a, buf, ES_info_len, NULL, NULL)) {
+					audioType = "AC3 audio";
+					s->ac3_pid = elementary_pid;
+					break;
+					//output.showf("  AC3        : PID 0x%04x", elementary_pid);
+					//verbose.showf("    type=0x%02x 0x6a\n", streamType);
+					//parse_descriptorsPMT(buf, ES_info_len, s);
+					//output.showf("\n");
+					//break;
+				}
+				/* fall through */
+			default:
+				output.showf("  OTHER      : PID 0x%04x (type=0x%02x)\n", elementary_pid, streamType);
+		};
+
+		if (videoType != NULL)
+		{
+			if (strlen(videoType) > 0)
+				output.showf("  VIDEO      : PID 0x%04x  (%s)\n", elementary_pid, videoType);
+			else
+				output.showf("  VIDEO      : PID 0x%04x  (BBC Dirac UHD video)\n", elementary_pid);
+			verbose.showf("    type=0x%02x\n", streamType);
 			if (s->video_pid == 0)
 				s->video_pid = elementary_pid;
-			break;
-		case 0x03:
-		case 0x04:
-			verbose.showf("  AUDIO     : PID 0x%04x\n", elementary_pid);
+		}
+
+		if (audioType != NULL)
+		{
+			if (strlen(audioType) > 0)
+				output.showf("  AUDIO      : PID 0x%04x  (%s)", elementary_pid, audioType);
+			else
+				output.showf("  AUDIO      : PID 0x%04x", elementary_pid);
+			verbose.showf("    type=0x%02x\n", streamType);
 			if (s->audio_num < AUDIO_CHAN_MAX) {
 				s->audio_pid[s->audio_num] = elementary_pid;
 				parse_descriptorsPMT (buf, ES_info_len, s);
 				s->audio_num++;
+				output.showf("\n");
 			}
 			else
-				verbose.showf("more than %i audio channels, truncating\n", AUDIO_CHAN_MAX);
-			break;
-		case 0x06:
-			if (find_descriptor(0x56, buf, ES_info_len, NULL, NULL)) {
-				verbose.showf("  TELETEXT  : PID 0x%04x\n", elementary_pid);
-				s->teletext_pid = elementary_pid;
-				break;
-			}
-			else if (find_descriptor(0x59, buf, ES_info_len, NULL, NULL)) {
-				/* Note: The subtitling descriptor can also signal
-				 * teletext subtitling, but then the teletext descriptor
-				 * will also be present; so we can be quite confident
-				 * that we catch DVB subtitling streams only here, w/o
-				 * parsing the descriptor. */
-				verbose.showf("  SUBTITLING: PID 0x%04x\n", elementary_pid);
-				s->subtitling_pid = elementary_pid;
-				break;
-			}
-			else if (find_descriptor(0x6a, buf, ES_info_len, NULL, NULL)) {
-				verbose.showf("  AC3       : PID 0x%04x\n", elementary_pid);
-				s->ac3_pid = elementary_pid;
-				parse_descriptorsPMT(buf, ES_info_len, s);
-				break;
-			}
-			/* fall through */
-		default:
-			verbose.showf("  OTHER     : PID 0x%04x TYPE 0x%02x\n", elementary_pid, streamType);
-		};
+				verbose.showf("\nmore than %i audio channels, truncating\n", AUDIO_CHAN_MAX);
+		}
 
 		buf += ES_info_len;
 		section_length -= ES_info_len;

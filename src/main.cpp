@@ -68,8 +68,7 @@ HRESULT ShowMenu()
 	char strMenuSelect[80];
 	int iMenuSelect = 0;
 
-	cout << "This program was designed to create channels.ini entries" << endl;
-	cout << "for DigitalWatch using BDA drivers." << endl;
+	cout << "This program was designed to scan for channels on BDA DVB-T devices." << endl;
 	cout << endl;
 	cout << "Usage:" << endl;
 	cout << "  Use 'Add Network' to add each frequency for your area." << endl;
@@ -78,14 +77,16 @@ HRESULT ShowMenu()
 	cout << "    Frequency (KHz):177500" << endl;
 	cout << "    BandWidth (Mbps):7" << endl;
 	cout << endl;
-	cout << "  Then use option 2 to generate the channel listing." << endl;
-	cout << "  Once finished you can cut and paste the entries into your channels.ini file." << endl;
+	cout << "  Then use option 2 to begin scanning" << endl;
 	cout << endl;
-	cout << "Notes:" << endl;
-	cout << "- If a channel has multiple audio pids then it will be listed multiple times." << endl;
-	cout << "- If an AC3 PID is detected then an A will be prefixed to the audio pid." << endl;
-	cout << "- If an AC3 PID is detected and is not the first pid for the program then the" << endl;
-	cout << "  name will be suffixed with AC3" << endl << endl << endl;
+	cout << "DigitalWatch Notes:" << endl;
+	cout << "  To create the channels.ini entries for DigitalWatch use option 3 to" << endl;
+	cout << "  generate the channel listing." << endl;
+	cout << "  Once finished you can cut and paste the entries into your channels.ini file." << endl;
+	cout << "  - If a channel has multiple audio pids then it will be listed multiple times." << endl;
+	cout << "  - If an AC3 PID is detected then an A will be prefixed to the audio pid." << endl;
+	cout << "  - If an AC3 PID is detected and is not the first pid for the program then the" << endl;
+	cout << "    name will be suffixed with AC3" << endl << endl << endl;
 
 
 
@@ -104,7 +105,8 @@ HRESULT ShowMenu()
 	{
 		cout << endl;
 		cout << "1. Add Network" << endl;
-		cout << "2. Generate Channels.ini" << endl;
+		cout << "2. Scan Networks" << endl;
+		cout << "3. Generate Channels.ini" << endl;
 		cout << "4. Signal Statistics" << endl;
 		cout << "5. Scan all Australian frequencies"  << endl;
 		cout << "6. Turn Verbose output " << (cBDAChannelScan->IsVerbose() ? "Off" : "On") << endl;
@@ -123,7 +125,7 @@ HRESULT ShowMenu()
 		
 		cout << "10.Exit"		 << endl;
 		cout << endl;
-		cout << "Please Select Menu(1,2,4,5,6,9,8,10):";
+		cout << "Please Select Menu(1,2,3,4,5,6,8,9,10):";
 
 		cin >> strMenuSelect;
 
@@ -152,7 +154,11 @@ HRESULT ShowMenu()
 			break;
 
 		case 2:
-			cBDAChannelScan->scanNetworks();
+			cBDAChannelScan->scanNetworks(FALSE);
+			break;
+
+		case 3:
+			cBDAChannelScan->scanNetworks(TRUE);
 			break;
 
 		case 4:

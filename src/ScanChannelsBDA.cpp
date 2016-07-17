@@ -295,7 +295,7 @@ void BDAChannelScan::DestroyGraphForTSFileSink()
 
 }
 
-HRESULT BDAChannelScan::scanNetworks()
+HRESULT BDAChannelScan::scanNetworks(BOOL bGenerateChannelsIni)
 {
 	HRESULT hr = S_OK;
 
@@ -306,7 +306,7 @@ HRESULT BDAChannelScan::scanNetworks()
 
 	for (int count=0 ; count<m_Count ; count++ )
 	{
-		hr = scanChannel(count+1, m_freq[count], m_band[count]);
+		hr = scanChannel(count+1, m_freq[count], m_band[count], bGenerateChannelsIni);
 		if (hr == S_FALSE)
 			(log << "# Nothing found on " << m_freq[count] << "kHz frequency, moving on.\n").Show();
 		if (hr == E_FAIL)
@@ -388,7 +388,7 @@ HRESULT BDAChannelScan::scanAll()
 	for (int count=0 ; count<50 ; count++ )
 	{
 		chNum++;
-		hr = scanChannel(chNum, ulFrequencyArray[count], 7);
+		hr = scanChannel(chNum, ulFrequencyArray[count], 7, FALSE);
 		if (hr == E_FAIL)
 		{
 			return (log << "Error locking channel. Aborting\n").Show(E_FAIL);
@@ -398,7 +398,7 @@ HRESULT BDAChannelScan::scanAll()
 
 		(log << "# Nothing found on " << ulFrequencyArray[count] << "kHz, trying +125").Show();
 
-		hr = scanChannel(chNum, ulFrequencyArray[count] + 125, 7);
+		hr = scanChannel(chNum, ulFrequencyArray[count] + 125, 7, FALSE);
 		if (hr == E_FAIL)
 		{
 			return (log << "\nError locking channel. Aborting\n").Show(E_FAIL);
@@ -408,7 +408,7 @@ HRESULT BDAChannelScan::scanAll()
 
 		(log << ", trying -125").Show();
 
-		hr = scanChannel(chNum, ulFrequencyArray[count] - 125, 7);
+		hr = scanChannel(chNum, ulFrequencyArray[count] - 125, 7, FALSE);
 		if (hr == E_FAIL)
 		{
 			return (log << "\nError locking channel. Aborting\n").Show(E_FAIL);
@@ -504,6 +504,7 @@ HRESULT BDAChannelScan::TestTSFileSink(long freq, long band, LPTSTR pFilename)
 void BDAChannelScan::ToggleVerbose()
 {
 	m_bVerbose = !m_bVerbose;
+	m_mpeg2parser.SetVerbose(m_bVerbose);
 	if (m_bVerbose)
 	{
 		m_consoleVerboseHandle = m_mpeg2parser.VerboseOutput()->AddCallback(&m_console);
@@ -944,7 +945,7 @@ BOOL BDAChannelScan::StopGraph()
 	return TRUE;
 }
 
-HRESULT BDAChannelScan::scanChannel(long channelNumber, long frequency, long bandwidth)
+HRESULT BDAChannelScan::scanChannel(long channelNumber, long frequency, long bandwidth, BOOL bGenerateChannelsIni)
 {
 	ResetEvent(m_hGuideDataChangedEvent);
 	m_mpeg2parser.Reset();
@@ -972,7 +973,10 @@ HRESULT BDAChannelScan::scanChannel(long channelNumber, long frequency, long ban
 			switch (m_mpeg2parser.WaitForScanToFinish())
 			{
 			case WAIT_OBJECT_0:
-				m_mpeg2parser.PrintDigitalWatchChannelsIni();
+				if (bGenerateChannelsIni)
+					m_mpeg2parser.PrintDigitalWatchChannelsIni();
+				else
+					printf("\n");
 				break;
 			case WAIT_TIMEOUT:
 				printf("# scan timed out\n");

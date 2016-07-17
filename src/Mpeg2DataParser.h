@@ -140,6 +140,8 @@ public:
 	LogMessage * VerboseOutput() { return &verbose; }
 	LogMessage * Output() { return &output; }
 
+	BOOL IsVerbose() { return m_bVerbose; }
+	void SetVerbose(BOOL bVerbose) { m_bVerbose = bVerbose; }
 
 private:
 	void SetupFilter (struct section_buf* s, int pid, int tid, int run_once, int segmented, int timeout);
@@ -162,6 +164,8 @@ private:
 	void parse_descriptorsNIT(const unsigned char *buf, int remaining_length, struct transponder *tp);
 	void parse_descriptorsSDT(const unsigned char *buf, int remaining_length, struct service *s);
 
+	void parse_audio_stream_descriptor (const unsigned char *buf, struct service *s);
+	void parse_ac3_stream_descriptor (const unsigned char *buf, struct service *s);
 	void parse_iso639_language_descriptor (const unsigned char *buf, struct service *s);
 	void parse_network_name_descriptor (const unsigned char *buf, struct transponder *tp);
 	void print_unknown_descriptor(const unsigned char *buf, int descriptor_len);
@@ -200,6 +204,7 @@ private:
 
 	LogMessage verbose;
 	LogMessage output;
+	BOOL m_bVerbose;
 };
 
 #endif

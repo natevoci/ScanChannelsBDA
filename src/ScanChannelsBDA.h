@@ -56,7 +56,7 @@ public:
 
 	HRESULT selectCard();
 	void AddNetwork(long freq, long band);
-	HRESULT scanNetworks();
+	HRESULT scanNetworks(BOOL bGenerateChannelsIni);
 	HRESULT scanAll();
 
 	HRESULT SignalStatistics(long frequency, long bandwidth);
@@ -92,7 +92,7 @@ private:
 	void DestroyGraph();
 	void DestroyGraphForTSFileSink();
 
-	HRESULT scanChannel(long channelNumber, long frequency, long bandwidth);
+	HRESULT scanChannel(long channelNumber, long frequency, long bandwidth, BOOL bGenerateChannelsIni);
 
 	CComPtr <IBaseFilter> m_pBDANetworkProvider;
 
