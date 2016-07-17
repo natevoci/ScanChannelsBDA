@@ -3,6 +3,10 @@
 /*.plg
 /bin
 /obj
-/ScanChannelsBDA.suo
 /*.user
 /*.aps
+/*.sdf
+/*.suo
+/ipch/
+/*.filters
+/*.opensdf
