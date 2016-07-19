@@ -1,0 +1,8 @@
+@echo off
+
+set VERSION_A=2
+set VERSION_B=0
+set VERSION_C=0
+
+set VERSION=%VERSION_A%.%VERSION_B%.%VERSION_C%.%VERSION_D%
+
