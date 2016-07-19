@@ -450,7 +450,7 @@ HRESULT BDAChannelScan::SignalStatistics(long frequency, long bandwidth)
 
 		(log << "# signal locked = " << (bLocked ? "Y" : "N")
 			 << " present = " << (bPresent ? "Y" : "N")
-			 << " stength = " << nStrength
+			 << " strength = " << nStrength
 			 << " quality = " << nQuality << "\n").Show();
 
 		if (::WaitForSingleObject(hInput, 500) == WAIT_OBJECT_0)
@@ -790,7 +790,7 @@ HRESULT	BDAChannelScan::LockChannel(long lFrequency, long lBandwidth, BOOL &lock
 
 			(verbose << "# signal locked = " << (locked ? "Y" : "N")
 					 << " present = " << (present ? "Y" : "N")
-					 << " stength = " << strength
+					 << " strength = " << strength
 					 << " quality = " << quality << "\n").Show();
 			
 			//if ((locked>0) || (present>0) || (quality>0))
@@ -967,7 +967,7 @@ HRESULT BDAChannelScan::scanChannel(long channelNumber, long frequency, long ban
 			(log << "# locked " << frequency << ", " << bandwidth
 				<< " signal locked = " << (bLocked ? "Y" : "N")
 				<< " present = " << (bPresent ? "Y" : "N")
-				<< " stength = " << nStrength
+				<< " strength = " << nStrength
 				<< " quality = " << nQuality << "\n").Show();
 
 			switch (m_mpeg2parser.WaitForScanToFinish())
