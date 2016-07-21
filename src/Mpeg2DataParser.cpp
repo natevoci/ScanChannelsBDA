@@ -991,7 +991,14 @@ void Mpeg2DataParser::parse_pmt (const unsigned char *buf, int section_length, i
 				break;
 			case 0x11: // ISO/IEC 14496-3 Audio with the LATMtransport syntax as defined in ISO/IEC 14496-3/Amd.1 
 			case 0x1c: // ISO/IEC 14496-3 Audio, without using any additional transport syntax, such as DST, ALS and SLS
-				audioType = "14496-3 audio";
+				if (find_descriptor(0x7c, buf, ES_info_len, NULL, NULL))
+				{
+					audioType = "AAC audio";
+				}
+				else
+				{
+					audioType = "14496-3 audio";
+				}
 				break;
 			case 0x80: // ITU-T Rec. H.262 and ISO/IEC 13818-2 for DigiCipher II or PCM audio for Blu-ray in a packetized stream
 				audioType = "H.262 audio";
